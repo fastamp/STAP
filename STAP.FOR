@@ -4,7 +4,7 @@ C .                              S T A P                              .
 C .                                                                   . 
 C .            AN IN-CORE SOLUTION STATIC ANALYSIS PROGRAM            . 
 C .                                                                   . 
-C . . . . . . . . . . . . . .  . . .  . . . . . . . . . . . . . . . . . 
+C . . . . . . . . . . . . . .  . . .  . . . . . . . . . . . . . . . . .      
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
       COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
       COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
@@ -51,10 +51,9 @@ C
 C     * * * * * * * * * * * * * * * * * * * * * *                       
       CALL SECOND (TIM(1))                                              
 C                                                                       
-C                                                                       
 C     R E A D   C O N T R O L   I N F O R M A T I O N                   
-C                                                                       
-C                                                                       
+C
+      CALL OPFILE()
       READ (IIN,1000) HED,NUMNP,NUMEG,NLCASE,MODEX                      
       IF (NUMNP.EQ.0) GO TO 800                                         
       WRITE (IOUT,2000) HED,NUMNP,NUMEG,NLCASE,MODEX                    
