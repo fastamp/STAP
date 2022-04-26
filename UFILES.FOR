@@ -3,7 +3,7 @@ C+    函数功能: 打开文件
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
       SUBROUTINE OPFILE()
       IMPLICIT REAL*8(A-H,O-Z)
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT 
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
       CHARACTER*256 CPATH
 C
       NLEN=0
@@ -21,10 +21,20 @@ C
 C
 20    N1=I
 C
-      OPEN(UNIT=IIN,FILE=CPATH)
-      OPEN(UNIT=IOUT,FILE=CPATH(1:N2)//'OUT')
+      OPEN(UNIT=IIN,  FILE=CPATH)
+      OPEN(UNIT=IOUT, FILE=CPATH(1:N2)//'OUT')
+      OPEN(UNIT=IPOST,FILE=CPATH(1:N2)//'VTK')
 C      OPEN(UNIT=IELMNT,FILE=CPATH(1:N2)//'ELE')
 C      OPEN(UNIT=ILOAD,FILE=CPATH(1:N2)//'LDS')
+C
+C     以下代码写出后处理文件的头部
+C
+      REWIND(IPOST)
+      WRITE(IPOST,'(26H# vtk DataFile Version 2.0)')
+      WRITE(IPOST,'(25HUnstructured Grid Example)')
+      WRITE(IPOST,'(5HASCII)')
+      WRITE(IPOST,'(7HDATASET,1X,17HUNSTRUCTURED_GRID)')
+C
       RETURN
 C
 C
