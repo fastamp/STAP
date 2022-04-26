@@ -13,12 +13,13 @@ C
       NFIRST=N6
       IF (IND.GT.1) NFIRST=N5
       N101=NFIRST                         !材料数组-E
-      N102=N101 + NUMMAT*ITWO             !材料数组-Area
-      N103=N102 + NUMMAT*ITWO             !LM数组->ne*ndof*nend 二维空间的QUAD单元
-      N104=N103 + 8*NUME                  !单元节点坐标向量 ne*ndof*nend nend:单元节点数
-      N105=N104 + 8*NUME*ITWO             !单元材料索引
-      N106=N105 + NUME
-      NLAST=N106
+      N102=N101 + NUMMAT*ITWO             !材料数组-泊松比
+      N103=N102 + NUMMAT*ITWO             !材料数组-Area
+      N104=N103 + NUMMAT*ITWO             !LM数组->ne*ndof*nend 二维空间的QUAD单元
+      N105=N104 + 8*NUME                  !单元节点坐标向量 ne*ndof*nend nend:单元节点数
+      N106=N105 + 8*NUME*ITWO             !单元材料索引
+      N107=N106 + NUME
+      NLAST=N107
 C
       IF (IND.GT.1) GO TO 100                                           
       IF (NLAST.GT.MTOT) CALL ERROR (NLAST-MTOT,3)                      
@@ -27,8 +28,8 @@ C
 C                                                                       
   200 MIDEST=NLAST - NFIRST
 C
-      CALL QUADS(A(N1),A(N2),A(N3),A(N4),,A(N4),A(N5),A(N101),A(N102),
-     &           A(N103),A(N104),A(N105))
+      CALL QUADS(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
+     &           A(N103),A(N104),A(N105),A(N106))
       RETURN
       END
 C
@@ -38,12 +39,12 @@ C+    ID: 单元自由度数组
 C+    X,Y,Z: 节点坐标(Z忽略)
 C+    U: 位移
 C+    MHT: 列高数组
-C+    E,AREA: 材料数组-弹性模量, 泊松比
+C+    E,VU,AREA: 材料数组-弹性模量, 泊松比, 面积
 C+    LM: 连接关系数组
 C+    XYZ: 单元节点坐标数组
 C+    MATP: 单元材料索引数组
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
-      SUBROUTINE QUADS(ID,X,Y,Z,U,MHT,E,AREA,LM,XYZ,MATP)
+      SUBROUTINE QUADS(ID,X,Y,Z,U,MHT,E,VU,AREA,LM,XYZ,MATP)
       IMPLICIT REAL*8(A-H,O-Z)
       REAL A        !!!需要特别注意的地方, 当有IMPLICIT REAL*8的地方
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
@@ -53,16 +54,28 @@ C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
       COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
       COMMON A(1)
 C
-      DIMENSION X(1),Y(1),Z(1),ID(3,1),E(1),AREA(1),LM(8,1),
+      DIMENSION X(1),Y(1),Z(1),ID(3,1),E(1),VU(1),AREA(1),LM(8,1),
      &          XYZ(8,1),MATP(1),U(1),MHT(1)
       DIMENSION IX(4)
+      DIMENSION D(4,4),B(4,8),S(8,8),XG(4,4),WGT(4,4),DB(4)
+C
+C+++++高斯积分点
+      DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
+     1 .5773502691896D0,   0.D0,   0.D0,   -.7745966692415D0,   0.D0,   
+     2 .7745966692415D0,   0.D0,   -.8611363115941D0,                   
+     3 -.3399810435849D0,   .3399810435849D0,   .8611363115941D0 /      
+C+++++高斯积分权重
+      DATA WGT /  2.D0,   0.D0,   0.D0,   0.D0,   1.D0,   1.D0,         
+     1 0.D0,   0.D0,   .5555555555556D0,   .8888888888889D0,            
+     2 .5555555555556D0,   0.D0,   .3478548451375D0,   .6521451548625D0,
+     3 .6521451548625D0,   .3478548451375D0 /   
 C
       EQUIVALENCE (NPAR(1),NPAR1),(NPAR(2),NUME),(NPAR(3),NUMMAT)
       ND=8        !单元自由度数
 C
       GOTO(100,200,300),IND
 C
-C     数据输入阶段
+C     stage1: 数据输入阶段
 C
 100   WRITE(IOUT,2000) NPAR1,NUME
       WRITE(IPOST,'(5HCELLS,1X,I8,1X,I8)')NUME,NUME*4+NUME
@@ -104,27 +117,86 @@ C
 C
       !写出后处理
       WRITE(IOUT,2050)N,(IX(J),J=1,4),MTYPE
-      WRITE(IPOST,'(I8,1X,I8,1X,I8,1X,I8,1X,I8)')4,(IX(I),I=1,4)        !VTK文件
+      WRITE(IPOST,'(I8,1X,I8,1X,I8,1X,I8,1X,I8)')4,(IX(I)-1,I=1,4)        !VTK文件
       IF (N.EQ.NUME)THEN
         WRITE(IPOST,'(10HCELL_TYPES,1X,I8)')NUME
         DO II=1,NUME
-          WRITE(IPOST,'(I8)')8
+          WRITE(IPOST,'(I8)')9
         ENDDO
-        GOTO 900
+        GOTO 900                          !完成单元信息读取 退出循环
       ENDIF
 C
-      GOTO 100
+      GOTO 20                             !继续读取单元信息
 C
       GOTO 900
 C
+C     stage2: 计算和组装刚度矩阵
 C
-C     计算和组装刚度矩阵
+200   ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
+      NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
+      DO 190 N=1,NUME                     !对单元进行循环计算刚度矩阵
+      MTYPE=MATP(N)
+      YM=E(N)
+      PR=VU(N)
+      THIC=AREA(N)
+      F=YM/(1.+PR)                                                      
+      G=F*PR/(1.-2.*PR)                                                 
+      H=F + G                                                           
+C                                                                       
+      !平面应变
+      D(1,1)=H                                                          
+      D(1,2)=G                                                          
+      D(1,3)=0.                                                         
+      D(2,1)=G                                                          
+      D(2,2)=H                                                          
+      D(2,3)=0.                                                         
+      D(3,1)=0.                                                         
+      D(3,2)=0.                                                         
+      D(3,3)=F/2.                                                       
+      IF (ITYPE.EQ.1) THEN                                              
+      THIC=1.                                                           
+      GOTO 120                                                          
+      ENDIF                                                             
+C                                                                       
+      !轴对称                                                                       
+      D(1,4)=G                                                          
+      D(2,4)=G                                                          
+      D(3,4)=0.                                                         
+      D(4,1)=G                                                          
+      D(4,2)=G                                                          
+      D(4,3)=0.                                                         
+      D(4,4)=H                                                          
+      IF (ITYPE.EQ.0) GO TO 20                                          
+C                                                                       
+      !平面应力 
+      DO 110 I=1,3                                                       
+      XA=D(I,4)/D(4,4)                                                   
+      DO 110 J=I,3                                                       
+      D(I,J)=D(I,J) - D(4,J)*XA                                          
+      D(J,I)=D(I,J)
+110   CONTINUE
 C
-200   CONTINUE
+      !计算单元刚度矩阵
+120   DO 130 I=1,8                  !初始化单元刚度矩阵
+      DO 130 J=1,8
+      S(I,J)=0.D0
+130   CONTINUE
+C
+      IST=3
+      IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
+      DO 180 LX=1,NINT
+      RI=XG(LX,NINT)
+      DO 180 LY=1,NINT
+      SI=XG(LY,NINT)
+      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,NEL,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
+      IF (ITYPE.GT.0) XBAR=THIC
+      WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
+180   CONTINUE
+190   CONTINUE
       GOTO 900
 C
 C
-C     回代求解计算应力
+C     stage3: 回代求解计算应力
 C
 300   CONTINUE
       GOTO 900
