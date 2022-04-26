@@ -58,19 +58,17 @@ C
       IF (NUMNP.EQ.0) GO TO 800                                         
       WRITE (IOUT,2000) HED,NUMNP,NUMEG,NLCASE,MODEX                    
 C                                                                       
-C                                                                       
 C     R E A D   N O D A L   P O I N T   D A T A                         
 C                                                                       
-C                                                                       
-      N1= 1                                                             
-      N2=N1 + 3*NUMNP                                                   
-      N2=(N2/2)*2 + 1                                                   
-      N3=N2 + NUMNP*ITWO                                                
-      N4=N3 + NUMNP*ITWO                                                
+      N1= 1                                           !ID数组                                  
+      N2=N1 + 3*NUMNP                                 !X数组           
+      N2=(N2/2)*2 + 1                                 !对齐操作 
+      N3=N2 + NUMNP*ITWO                              !Y数组
+      N4=N3 + NUMNP*ITWO                              !Z数组
       N5=N4 + NUMNP*ITWO                                                
       IF (N5.GT.MTOT) CALL ERROR (N5-MTOT,1)                            
 C                                                                       
-      CALL INPUT (A(N1),A(N2),A(N3),A(N4),NUMNP,NEQ)                    
+      CALL INPUT (A(N1),A(N2),A(N3),A(N4),NUMNP,NEQ)  ! 
 C                                                                       
       NEQ1=NEQ + 1                                                      
 C                                                                       
@@ -78,7 +76,7 @@ C
 C     C A L C U L A T E   A N D   S T O R E   L O A D   V E C T O R S   
 C                                                                       
 C                                                                       
-      N6=N5 + NEQ*ITWO                                                  
+      N6=N5 + NEQ*ITWO                                !N5: 右端项->临时数组
       WRITE (IOUT,2005)                                                 
 C                                                                       
       REWIND ILOAD                                                      
@@ -93,19 +91,20 @@ C
       GO TO 800                                                         
   310 CONTINUE                                                          
 C                                                                       
-      N7=N6 + NLOAD                                                     
-      N8=N7 + NLOAD                                                     
-      N9=N8 + NLOAD*ITWO                                                
+      N7=N6 + NLOAD                                   !N6: 力施加的节点->临时数组
+      N8=N7 + NLOAD                                   !N7: 施加的方向->临时数组
+      N9=N8 + NLOAD*ITWO                              !N8: 载荷大小->临时数组
 C                                                                       
       IF (N9.GT.MTOT) CALL ERROR (N9-MTOT,2)                            
-C                                                                       
+C
+C     整理节点载荷信息写出到load文件,在循环中不断累加N5数据
+C
       CALL LOADS (A(N5),A(N6),A(N7),A(N8),A(N1),NLOAD,NEQ)              
 C                                                                       
-  300 CONTINUE                                                          
+  300 CONTINUE                                                                                                                              
 C                                                                       
-C                                                                       
-C     R E A D , G E N E R A T E   A N D   S T O R E                     
-C     E L E M E N T   D A T A                                           
+C     R E A D , G E N E R A T E   A N D   S T O R E
+C     E L E M E N T   D A T A                      
 C                                                                       
 C     CLEAR STORAGE                                                     
 C                                                                       
@@ -308,13 +307,13 @@ C
    10 READ (IIN,1000) N,(ID(I,N),I=1,3),X(N),Y(N),Z(N),KN               
       WRITE (IOUT,2030) N,(ID(I,N),I=1,3),X(N),Y(N),Z(N),KN             
       IF (KNOLD.EQ.0) GO TO 50                                          
-      NUM=(N-NOLD)/KNOLD                                                
-      NUMN=NUM - 1                                                      
-      IF (NUMN.LT.1) GO TO 50                                           
-      XNUM=NUM                                                          
-      DX=(X(N)-X(NOLD))/XNUM                                            
-      DY=(Y(N)-Y(NOLD))/XNUM                                            
-      DZ=(Z(N)-Z(NOLD))/XNUM                                            
+      NUM=(N-NOLD)/KNOLD  
+      NUMN=NUM - 1   
+      IF (NUMN.LT.1) GO TO 50
+      XNUM=NUM 
+      DX=(X(N)-X(NOLD))/XNUM 
+      DY=(Y(N)-Y(NOLD))/XNUM
+      DZ=(Z(N)-Z(NOLD))/XNUM
       K=NOLD                                                            
       DO 30 J=1,NUMN                                                    
       KK=K                                                              
@@ -332,10 +331,10 @@ C
 C                                                                       
 C     WRITE COMPLETE NODAL DATA                                         
 C                                                                       
-      WRITE (IOUT,2015)                                                 
-      WRITE (IOUT,2020)                                                 
-      DO 200 N=1,NUMNP                                                  
-  200 WRITE (IOUT,2030) N,(ID(I,N),I=1,3),X(N),Y(N),Z(N),KN             
+      WRITE (IOUT,2015)
+      WRITE (IOUT,2020) 
+      DO 200 N=1,NUMNP
+  200 WRITE (IOUT,2030) N,(ID(I,N),I=1,3),X(N),Y(N),Z(N),KN
 C                                                                       
 C     NUMBER UNKNOWNS                                                   
 C                                                                       
@@ -368,7 +367,8 @@ C
      1 'DEGREES OF FREEDOM',/,'  NUMBER',//,                            
      2 '     N',13X,'X    Y    Z',/,(1X,I5,9X,3I5))                     
 C                                                                       
-      END                                                               
+      END
+C
       SUBROUTINE LOADS (R,NOD,IDIRN,FLOAD,ID,NLOAD,NEQ)                 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 C .                                                                   . 
@@ -434,7 +434,7 @@ C
       DO 100 N=1,NUMEG                                                  
       IF (N.NE.1) WRITE (IOUT,2010)                                     
 C                                                                       
-      READ (IIN,1000) NPAR                                              
+      READ (IIN,1000) NPAR  
 C                                                                       
       CALL ELEMNT                                                       
 C                                                                       
@@ -450,7 +450,8 @@ C
  2000 FORMAT (//,' E L E M E N T   G R O U P   D A T A',//)             
  2010 FORMAT (' ')                                                      
 C                                                                       
-      END                                                               
+      END
+C
       SUBROUTINE ELEMNT                                                 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 C .                                                                   . 
