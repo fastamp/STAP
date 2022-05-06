@@ -34,12 +34,11 @@ C
       GOTO(10,20),NETYP
 C
 C     标准位移法4节点程序
-C
 10    CALL QUADS(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
      &           A(N103),A(N104),A(N105),A(N106))
       GOTO 900
 C
-C
+C     Wilson不协调单元程序
 20    CALL QUADW(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
      &           A(N103),A(N104),A(N105),A(N106))
       GOTO 900
@@ -387,7 +386,7 @@ C
      &          XYZ(8,1),MATP(1),U(1),MHT(1)
       DIMENSION IX(4)
       DIMENSION D(4,4),B(4,8),S(8,8),XG(4,4),WGT(4,4),DB(4),SW(36),
-     &          STS(4),STR(4)
+     &          STS(4),STR(4),BB(4,8),GAU(8,8),GAA(8,8)
 C
 C     AJ-(0,0)的雅克比矩阵\partial x/\partial \xi
 C     F0-转换矩阵F;     BM-修正的B矩阵
@@ -470,7 +469,7 @@ C
 C
 C     stage2: 计算和组装刚度矩阵
 C
-200   DO 190 N=1,NUME
+200   DO 290 N=1,NUME
       IMAT=MATP(N)
       YM=E(IMAT)
       PR=VU(IMAT)
@@ -530,28 +529,47 @@ C
 C
       !计算单元刚度矩阵
 120   DO 130 J=1,8                  !初始化单元刚度矩阵
-      DO 130 I=J,8
+      DO I=1,3
+      B(I,J)=0.D0                   !初始化B矩阵
+      BB(I,J)=0.D0
+      ENDDO
+      DO I=1,8
       S(I,J)=0.D0
+      GAU(I,J)=0.D0                 !初始化附加刚度矩阵
+      GAA(I,J)=0.D0                 !初始化附加刚度矩阵对称部分
+      ENDDO
 130   CONTINUE
       IST=3
       IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
-      DO 180 LX=1,NINT
+      DO 280 LX=1,NINT
       RI=XG(LX,NINT)
-      DO 180 LY=1,NINT
+      DO 280 LY=1,NINT
       SI=XG(LY,NINT)
-      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,N,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
+      CALL STDMW(XYZ(1,N),B,BB,DET,RI,SI,XBAR,N,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
       IF (ITYPE.GT.0) XBAR=THIC
       WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
 C
       DO 170 J=1,8                  !开始刚度矩阵计算
-      DO 140 K=1,IST                !计算DB=D*B矩阵
+      !计算DB=D*B矩阵
+      DO 140 K=1,IST                
       DB(K)=0.0
       DO 140 L=1,IST
       DB(K)=DB(K)+D(K,L)*B(L,J)
-140   CONTINUE 
-180   CONTINUE
-
-190   CONTINUE
+140   CONTINUE
+C
+      DO 160 I=J,8                  !标准刚度阵是对称的,因此只计算一次
+      STIFF=0.D0
+      DO 150 K=1,IST
+      STIFF=STIFF+B(K,I)*DB(K)
+150   CONTINUE 
+      S(I,J)=S(I,J)+STIFF*WT
+160   CONTINUE
+C
+170   CONTINUE
+C
+280   CONTINUE                      !结束积分点循环
+C
+290   CONTINUE                      !结束单元循环
 C
 300   CONTINUE
 C
@@ -715,7 +733,8 @@ C
 C                                                                       
       RETURN                                                            
 C                                                                       
-      END                                                               
+      END 
+C                                                              
       SUBROUTINE STDM (XX,B,DET,R,S,XBAR,NEL,ITYPE,IOUT)                
 C                                                                       
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
@@ -832,4 +851,248 @@ C
  2000 FORMAT (//,' *** ERROR *** ',                                     
      1    ' ZERO OR NEGATIVE JACOBIAN DETERMINANT FOR ELEMENT (',I8,')')
 C                                                                       
-      END                                                               
+      END
+C
+      SUBROUTINE STDM (XX,B,DET,R,S,XBAR,NEL,ITYPE,IOUT)                
+C                                                                       
+C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+C .                                                                   . 
+C .   P R O G R A M                                                   . 
+C .     TO EVALUATE THE STRAIN-DISPLACEMENT TRANSFORMATION MATRIX B   . 
+C .     AT POINT (R,S) FOR A QUADRILATERAL ELEMENT                    . 
+C .                                                                   . 
+C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)                               
+      DIMENSION XX(2,4),B(4,8),H(4),P(2,4),XJ(2,2),XJI(2,2)             
+C                                                                       
+      RP = 1.0 + R                                                      
+      SP = 1.0 + S                                                      
+      RM = 1.0 - R                                                      
+      SM = 1.0 - S                                                      
+C                                                                       
+C     INTERPOLATION FUNCTIONS                                           
+C                                                                       
+      H(1) = 0.25* RP* SP                                               
+      H(2) = 0.25* RM* SP                                               
+      H(3) = 0.25* RM* SM                                               
+      H(4) = 0.25* RP* SM                                               
+C                                                                       
+C     NATURAL COORDINATE DERIVATIVES OF THE INTERPOLATION FUNCTIONS     
+C                                                                       
+C        1. WITH RESPECT TO R                                           
+C                                                                       
+      P(1,1) = 0.25* SP             !\partial Ni/\partial \xi
+      P(1,2) = - P(1,1)                                                 
+      P(1,3) = - 0.25* SM                                               
+      P(1,4) = - P(1,3)                                                 
+C                                                                       
+C        2. WITH RESPECT TO S                                           
+C
+      P(2,1) = 0.25* RP             !\partial Ni/\partial \eta
+      P(2,2) = 0.25* RM                                                 
+      P(2,3) = - P(2,2)                                                 
+      P(2,4) = - P(2,1)                                                 
+C                                                                       
+C     EVALUATE THE JACOBIAN MATRIX AT POINT (R,S)                       
+C                                                                       
+   10 DO 30 I=1,2                                                       
+      DO 30 J=1,2                                                       
+      DUM = 0.0                                                         
+      DO 20 K=1,4                                                       
+   20 DUM=DUM + P(I,K)*XX(J,K)                                          
+   30 XJ(I,J)=DUM                   !\partial x/\partial \xi
+C                                                                       
+C     COMPUTE THE DETERMINANT OF THE JACOBIAN MATRIX AT POINT (R,S)     
+C                                                                       
+      DET = XJ(1,1)* XJ(2,2) - XJ(2,1)* XJ(1,2)                         
+      IF (DET.GT.0.00000001) GO TO 40                                   
+      WRITE (IOUT,2000) NEL                                             
+      GO TO 800                                                         
+C                                                                       
+C     COMPUTE INVERSE OF THE JACOBIAN MATRIX                            
+C                                                                       
+   40 DUM=1./DET                                                        
+      XJI(1,1) = XJ(2,2)* DUM                                           
+      XJI(1,2) =-XJ(1,2)* DUM                                           
+      XJI(2,1) =-XJ(2,1)* DUM                                           
+      XJI(2,2) = XJ(1,1)* DUM                                           
+C                                                                       
+C     EVALUATE GLOBAL DERIVATIVE OPERATOR B                             
+C                                                                       
+      K2=0                                                              
+      DO 60 K=1,4                                                       
+      K2=K2 + 2                                                         
+      B(1,K2-1) = 0.                                                    
+      B(1,K2  ) = 0.                                                    
+      B(2,K2-1) = 0.                                                    
+      B(2,K2  ) = 0.                                                    
+      DO 50 I=1,2                                                       
+      B(1,K2-1) = B(1,K2-1) + XJI(1,I) * P(I,K)                         
+   50 B(2,K2  ) = B(2,K2  ) + XJI(2,I) * P(I,K)                         
+      B(3,K2  ) = B(1,K2-1)                                             
+   60 B(3,K2-1) = B(2,K2  )                                             
+C                                                                       
+C     IN CASE OF PLANE STRAIN OR PLANE STRESS ANALYSIS DO NOT INCLUDE   
+C     THE NORMAL STRAIN COMPONENT                                       
+C                                                                       
+      IF (ITYPE.GT.0) GO TO 900                                         
+C                                                                       
+C     COMPUTE THE RADIUS AT POINT (R,S)                                 
+C                                                                       
+      XBAR=0.0                                                          
+      DO 70 K=1,4                                                       
+   70 XBAR=XBAR + H(K)*XX(1,K)                                          
+C                                                                       
+C     EVALUATE THE HOOP STRAIN-DISPLACEMENT RELATION                    
+C                                                                       
+      IF (XBAR.GT.0.00000001) GO TO 90                                  
+C                                                                       
+C     FOR THE CASE OF ZERO RADIUS EQUATE RADIAL TO HOOP STRAIN          
+C                                                                       
+      DO 80 K=1,8                                                       
+   80 B(4,K)=B(1,K)                                                     
+      GO TO 900                                                         
+C                                                                       
+C     NON-ZERO RADIUS                                                   
+C                                                                       
+   90 DUM=1./XBAR                                                       
+      K2=0                                                              
+      DO 100 K=1,4                                                      
+      K2=K2 + 2                                                         
+      B(4,K2  ) = 0.                                                    
+  100 B(4,K2-1) = H(K)*DUM                                              
+      GO TO 900                                                         
+C                                                                       
+  800 STOP                                                              
+  900 RETURN                                                            
+C                                                                       
+ 2000 FORMAT (//,' *** ERROR *** ',                                     
+     1    ' ZERO OR NEGATIVE JACOBIAN DETERMINANT FOR ELEMENT (',I8,')')
+C                                                                       
+      END
+C
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
+C+    计算Wilson不协调元B矩阵函数
+C     B: 标准位移梯度矩阵
+C     BB: 不协调位移梯度矩阵
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
+      SUBROUTINE STDMW(XX,B,BB,DET,R,S,XBAR,NEL,ITYPE,IOUT)                
+      IMPLICIT REAL*8(A-H,O-Z)                               
+      DIMENSION XX(2,4),B(4,8),H(4),P(2,4),XJ(2,2),XJI(2,2),BB(4,8),
+     &          Q(2,2)
+C                                                                       
+      RP = 1.0 + R                                                      
+      SP = 1.0 + S                                                      
+      RM = 1.0 - R                                                      
+      SM = 1.0 - S                                                      
+C                                                                       
+C     INTERPOLATION FUNCTIONS                                           
+C                                                                       
+      H(1) = 0.25* RP* SP                                               
+      H(2) = 0.25* RM* SP                                               
+      H(3) = 0.25* RM* SM                                               
+      H(4) = 0.25* RP* SM                                               
+C                                                                       
+C     NATURAL COORDINATE DERIVATIVES OF THE INTERPOLATION FUNCTIONS     
+C                                                                       
+C        1. WITH RESPECT TO R                                           
+C                                                                       
+      P(1,1) = 0.25* SP             !\partial Ni/\partial \xi
+      P(1,2) = - P(1,1)                                                 
+      P(1,3) = - 0.25* SM                                               
+      P(1,4) = - P(1,3)
+      Q(1,1) = -2.D0*R
+      Q(1,2) = 0.D0
+C                                                                       
+C        2. WITH RESPECT TO S                                           
+C
+      P(2,1) = 0.25* RP             !\partial Ni/\partial \eta
+      P(2,2) = 0.25* RM                                                 
+      P(2,3) = - P(2,2)                                                 
+      P(2,4) = - P(2,1) 
+      Q(2,1) = 0.D0
+      Q(2,2) = -2.D0*S
+C                                                                       
+C     EVALUATE THE JACOBIAN MATRIX AT POINT (R,S)                       
+C                                                                       
+   10 DO 30 I=1,2                                                       
+      DO 30 J=1,2                                                       
+      DUM = 0.0                                                         
+      DO 20 K=1,4                                                       
+   20 DUM=DUM + P(I,K)*XX(J,K)                                          
+   30 XJ(I,J)=DUM                   !\partial x/\partial \xi
+C                                                                       
+C     COMPUTE THE DETERMINANT OF THE JACOBIAN MATRIX AT POINT (R,S)     
+C                                                                       
+      DET = XJ(1,1)* XJ(2,2) - XJ(2,1)* XJ(1,2)                         
+      IF (DET.GT.0.00000001) GO TO 40                                   
+      WRITE (IOUT,2000) NEL                                             
+      GO TO 800                                                         
+C                                                                       
+C     COMPUTE INVERSE OF THE JACOBIAN MATRIX                            
+C                                                                       
+   40 DUM=1./DET                                                        
+      XJI(1,1) = XJ(2,2)* DUM                                           
+      XJI(1,2) =-XJ(1,2)* DUM                                           
+      XJI(2,1) =-XJ(2,1)* DUM                                           
+      XJI(2,2) = XJ(1,1)* DUM                                           
+C                                                                       
+C     EVALUATE GLOBAL DERIVATIVE OPERATOR B                             
+C                                                                       
+      K2=0                                                              
+      DO 60 K=1,4                                                       
+      K2=K2 + 2                                                         
+      B(1,K2-1) = 0.                                                    
+      B(1,K2  ) = 0.                                                    
+      B(2,K2-1) = 0.                                                    
+      B(2,K2  ) = 0.                                                    
+      DO 50 I=1,2                                                       
+      B(1,K2-1) = B(1,K2-1) + XJI(1,I) * P(I,K)                         
+      B(2,K2  ) = B(2,K2  ) + XJI(2,I) * P(I,K)
+50    CONTINUE
+      B(3,K2  ) = B(1,K2-1)                                             
+      B(3,K2-1) = B(2,K2  ) 
+60    CONTINUE
+C
+C     计算不协调位移梯度矩阵
+      BB(1,1)=
+C                                                                       
+C     IN CASE OF PLANE STRAIN OR PLANE STRESS ANALYSIS DO NOT INCLUDE   
+C     THE NORMAL STRAIN COMPONENT                                       
+C                                                                       
+      IF (ITYPE.GT.0) GO TO 900                                         
+C                                                                       
+C     COMPUTE THE RADIUS AT POINT (R,S)                                 
+C                                                                       
+      XBAR=0.0                                                          
+      DO 70 K=1,4                                                       
+   70 XBAR=XBAR + H(K)*XX(1,K)                                          
+C                                                                       
+C     EVALUATE THE HOOP STRAIN-DISPLACEMENT RELATION                    
+C                                                                       
+      IF (XBAR.GT.0.00000001) GO TO 90                                  
+C                                                                       
+C     FOR THE CASE OF ZERO RADIUS EQUATE RADIAL TO HOOP STRAIN          
+C                                                                       
+      DO 80 K=1,8                                                       
+   80 B(4,K)=B(1,K)                                                     
+      GO TO 900                                                         
+C                                                                       
+C     NON-ZERO RADIUS                                                   
+C                                                                       
+   90 DUM=1./XBAR                                                       
+      K2=0                                                              
+      DO 100 K=1,4                                                      
+      K2=K2 + 2                                                         
+      B(4,K2  ) = 0.                                                    
+  100 B(4,K2-1) = H(K)*DUM                                              
+      GO TO 900                                                         
+C                                                                       
+  800 STOP                                                              
+  900 RETURN                                                            
+C                                                                       
+ 2000 FORMAT (//,' *** ERROR *** ',                                     
+     1    ' ZERO OR NEGATIVE JACOBIAN DETERMINANT FOR ELEMENT (',I8,')')
+C                                                                       
+      END
+C
