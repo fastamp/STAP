@@ -23,7 +23,7 @@ C+++++单元文件控制区
 C     IELMNT: 单元临时数据文件(二进制); ILOAD: 载荷临时数据文件(二进制)
 C     IIN: 输入文件inp;   IOUT: 输出信息文件out
 C     IPOST: 后处理vtk文件
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST                              
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
 C                                                                       
       DIMENSION TIM(5), HED(20)                                         
       DIMENSION IA(1)                                                   
@@ -55,7 +55,8 @@ C
       ILOAD = 2                                                         
       IIN = 5                                                           
       IOUT = 6
-      IPOST = 7                                                         
+      IPOST = 7
+      IPOST2 = 8                                                        
 C                                                                       
   200 NUMEST=0                                                          
       MAXEST=0                                                          
@@ -188,9 +189,11 @@ C
       CALL COLSOL (A(N3),A(N4),A(N2),NEQ,NWK,NEQ1,KTR)
 C                                                                       
       WRITE (IOUT,2015) L                                               
-      CALL WRITED (A(N4),A(N1),NEQ,NUMNP)
+      CALL WRITED(A(N4),A(N1),NEQ,NUMNP)
       !计算应力
-      CALL STRESS (A(N5))                                               
+      CALL STRESS (A(N5))
+      !写出后处理文件
+!      CALL WTPOST(A(N4),A(N1),NEQ,NUMNP)
 C                                                                       
   400 CONTINUE                                                          
 C                                                                       
@@ -210,8 +213,8 @@ C
 C                                                                       
   800 STOP                                                              
 C                                                                       
- 1000 FORMAT (20A4,/,4I5)                                               
- 1010 FORMAT (2I5)                                                      
+ 1000 FORMAT (20A4,/,4I)                                               
+ 1010 FORMAT (2I)                                                      
 C                                                                       
  2000 FORMAT (///,' ',20A4,///,                                         
      1    ' C O N T R O L   I N F O R M A T I O N',//,                  
@@ -249,7 +252,7 @@ C .   P R O G R A M                                                   .
 C .        TO PRINT MESSAGES WHEN HIGH-SPEED STORAGE IS EXCEEDED      . 
 C .                                                                   . 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
 C                                                                       
       GO TO (1,2,3,4),I                                                 
 C                                                                       
@@ -272,7 +275,8 @@ C
      1'STRUCTURE STIFFNESS, AND DISPLACEMENT AND STRESS SOLUTION PHASE')
  2050 FORMAT (//,' *** ERROR ***  STORAGE EXCEEDED BY ', I9)            
 C                                                                       
-      END                                                               
+      END
+C                                                               
       SUBROUTINE INPUT (ID,X,Y,Z,NUMNP,NEQ)                             
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 C .                                                                   . 
@@ -294,7 +298,7 @@ C .   EQUIPMENT AND DOUBLE PRECISION ARITHMETIC ON IBM MACHINES,      .
 C .   ENGINEERING WORKSTATIONS AND PCS. DEACTIVATE ABOVE LINE (ALSO   . 
 C .   OCCURRING IN OTHER SUBROUTINES) FOR SINGLE PRECISION ARITHMETIC.. 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION X(1),Y(1),Z(1),ID(3,NUMNP)                              
 C                                                                       
 C     READ AND GENERATE NODAL POINT DATA                                
@@ -334,9 +338,9 @@ C     WRITE COMPLETE NODAL DATA
 C                                                                       
       WRITE (IOUT,2015)
       WRITE (IOUT,2020)
-      WRITE(IPOST,'(6HPOINTS,1X,I8,1X,5Hfloat)')NUMNP 
+      WRITE(IPOST2,'(6HPOINTS,1X,I8,1X,5Hfloat)')NUMNP 
       DO 200 N=1,NUMNP
-      WRITE(IPOST,2050)X(N),Y(N),Z(N)           !写出后处理节点数据
+      WRITE(IPOST2,2050)X(N),Y(N),Z(N)           !写出后处理节点数据->临时文件
   200 WRITE (IOUT,2030) N,(ID(I,N),I=1,3),X(N),Y(N),Z(N),KN
 C                                                                       
 C     NUMBER UNKNOWNS                                                   
@@ -357,7 +361,7 @@ C
 C                                                                       
       RETURN                                                            
 C                                                                       
- 1000 FORMAT (4I5,3F10.0,I5)                                            
+ 1000 FORMAT (4I,3F,I)                                            
  2000 FORMAT(//,' N O D A L   P O I N T   D A T A',/)                   
  2010 FORMAT(' INPUT NODAL DATA',//)                                    
  2015 FORMAT(//,' GENERATED NODAL DATA',//)                             
@@ -369,7 +373,7 @@ C
  2040 FORMAT(//,' EQUATION NUMBERS',//,'   NODE',9X,                    
      1 'DEGREES OF FREEDOM',/,'  NUMBER',//,                            
      2 '     N',13X,'X    Y    Z',/,(1X,I5,9X,3I5))
-2050  FORMAT(E16.9,1X,E16.9,1X,E16.9)                     
+2050  FORMAT(E16.9,E16.9,E16.9)                     
 C                                                                       
       END
 C
@@ -384,7 +388,7 @@ C .                                                                   .
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)                               
       COMMON /VAR/ NG,MODEX                                             
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION R(NEQ),NOD(1),IDIRN(1),FLOAD(1)                         
       DIMENSION ID(3,1)                                                 
 C                                                                       
@@ -411,7 +415,7 @@ C
 C                                                                       
   900 RETURN                                                            
 C                                                                       
- 1000 FORMAT (2I5,F10.0)                                                
+ 1000 FORMAT (2I,F)                                                
  2000 FORMAT (//,'    NODE       DIRECTION      LOAD',/,                
      1        '   NUMBER',19X,'MAGNITUDE')                              
  2010 FORMAT (' ',I6,9X,I4,7X,E12.5)                                    
@@ -427,7 +431,7 @@ C .                                                                   .
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
       COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       COMMON A(1)                                                       
 C                                                                       
       REWIND IELMNT                                                     
@@ -450,7 +454,7 @@ C
 C                                                                       
       RETURN                                                            
 C                                                                       
- 1000 FORMAT (10I5)                                                     
+ 1000 FORMAT (10I)                                                     
  2000 FORMAT (//,' E L E M E N T   G R O U P   D A T A',//)             
  2010 FORMAT (' ')                                                      
 C                                                                       
@@ -560,7 +564,7 @@ C .        STRUCTURE STIFFNESS MATRIX                                 .
 C .                                                                   . 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
       COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION AA(1)                                                   
 C                                                                       
       REWIND IELMNT                                                     
@@ -658,7 +662,7 @@ C .        V(NN)     = DISPLACEMENT VECTOR                            .
 C .                                                                   . 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)                               
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION A(NWK),V(1),MAXA(1)                                     
 C                                                                       
 C     PERFORM L*D*L(T) FACTORIZATION OF STIFFNESS MATRIX                
@@ -747,57 +751,14 @@ C .   P R O G R A M                                                   .
 C .        TO OBTAIN THE LOAD VECTOR                                  . 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)                               
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION R(NEQ)                                                  
 C                                                                       
       READ (ILOAD) R                                                    
 C                                                                       
       RETURN                                                            
       END                                                               
-      SUBROUTINE WRITED (DISP,ID,NEQ,NUMNP)                             
-C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-C .                                                                   . 
-C .   P R O G R A M                                                   . 
-C .      TO PRINT DISPLACEMENTS                                       . 
-C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)                               
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST 
-      DIMENSION DISP(NEQ),ID(3,NUMNP)                                   
-      DIMENSION D(3)                                                    
-C                                                                       
-C     PRINT DISPLACEMENTS                                               
-C                                                                       
-      WRITE (IOUT,2000)                                                 
-      IC=4                                                              
-C
-      WRITE(IPOST,'(10HPOINT_DATA,1X,I8)')NUMNP
-      WRITE(IPOST,'(7HVECTORS,1X,12HDISPLACEMENT,1X,5Hfloat)')
-C                                                                      
-      DO 100 II=1,NUMNP                                                 
-      IC=IC + 1                                                         
-      IF (IC.LT.56) GO TO 105                                           
-      WRITE (IOUT,2000)                                                 
-      IC=4                                                              
-  105 DO 110 I=1,3                                                      
-  110 D(I)=0.                                                           
-C                                                                       
-      DO 120 I=1,3                                                      
-      KK=ID(I,II)                                                       
-      IL=I                                                              
-  120 IF (KK.NE.0) D(IL)=DISP(KK)                                       
-C
-      WRITE(IPOST,2020)D
-C
-  100 WRITE (IOUT,2010) II,D                                            
-C                                                                       
-      RETURN                                                            
-C                                                                       
- 2000 FORMAT (///,' D I S P L A C E M E N T S',//,'  NODE ',10X,        
-     1        'X-DISPLACEMENT    Y-DISPLACEMENT    Z-DISPLACEMENT')     
- 2010 FORMAT (1X,I3,8X,3E18.6)
- 2020 FORMAT(E16.9,1X,E16.9,1X,E16.9)                                         
-C                                                                       
-      END                                                               
+C                                                         
       SUBROUTINE STRESS (AA)                                            
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 C .                                                                   . 
@@ -808,7 +769,7 @@ C .                                                                   .
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
       COMMON /VAR/ NG,MODEX                                             
       COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION AA(1)                                                   
 C                                                                       
 C     LOOP OVER ALL ELEMENT GROUPS                                      
@@ -837,7 +798,7 @@ C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
       COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
       COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST 
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       COMMON A(1)                                                       
 C                                                                       
       EQUIVALENCE (NPAR(2),NUME),(NPAR(3),NUMMAT)                       
@@ -890,7 +851,7 @@ C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
       COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
       COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
       COMMON /VAR/ NG,MODEX                                             
-      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       COMMON A(1)                                                       
 C                                                                       
       DIMENSION X(1),Y(1),Z(1),ID(3,1),E(1),AREA(1),LM(6,1),            
@@ -905,7 +866,7 @@ C
 C+++++读取单元信息                                           
       !读取材料信息                                         
   300 WRITE (IOUT,2000) NPAR1,NUME
-      WRITE(IPOST,'(5HCELLS,1X,I8,1X,I8)')NUME,NUME*2+NUME
+      WRITE(IPOST2,'(5HCELLS,1X,I8,1X,I8)')NUME,NUME*2+NUME
       IF (NUMMAT.EQ.0) NUMMAT=1                                         
       WRITE (IOUT,2010) NUMMAT                                          
 C                                                                       
@@ -944,11 +905,11 @@ C
       CALL COLHT (MHT,ND,LM(1,N))         !计算列高
 C                                                                       
       WRITE (IOUT,2050) N,I,J,MTYPE
-      WRITE(IPOST,'(I8,1X,I8,1X,I8)')2,I-1,J-1        !VTK文件
+      WRITE(IPOST2,'(I8,1X,I8,1X,I8)')2,I-1,J-1        !VTK文件
       IF (N.EQ.NUME)THEN
-        WRITE(IPOST,'(10HCELL_TYPES,1X,I8)')NUME
+        WRITE(IPOST2,'(10HCELL_TYPES,1X,I8)')NUME
         DO II=1,NUME
-          WRITE(IPOST,'(I8)')3
+          WRITE(IPOST2,'(I8)')3
         ENDDO
         GOTO 900
       ENDIF
