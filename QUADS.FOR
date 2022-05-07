@@ -397,7 +397,7 @@ C     AJ-(0,0)的雅克比矩阵\partial x/\partial \xi
 C     F0-转换矩阵F;     BM-修正的B矩阵
 C     AH-假设应变法矩阵H; AG-假设应变法矩阵G
 C     GA-假设应变法矩阵gamma
-      DIMENSION AJ(2,2),F0(3,3),BM(4,8),AH(4,4),GA(4,4)
+C      DIMENSION AJ(2,2),F0(3,3),BM(4,8),AH(4,4),GA(4,4)
 C
 C+++++高斯积分点
       DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
