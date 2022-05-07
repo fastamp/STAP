@@ -31,7 +31,7 @@ C
   200 MIDEST=NLAST - NFIRST
 C
       IF(NETYP.LE.0)NETYP=1               !默认四节点位移法单元
-      GOTO(10,20),NETYP
+      GOTO(10,20,30),NETYP
 C
 C     标准位移法4节点程序
 10    CALL QUADS(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
@@ -40,6 +40,11 @@ C     标准位移法4节点程序
 C
 C     Wilson不协调单元程序
 20    CALL QUADW(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
+     &           A(N103),A(N104),A(N105),A(N106))
+      GOTO 900
+C
+C     4节点EAS单元程序
+30    CALL QUADSR(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
      &           A(N103),A(N104),A(N105),A(N106))
       GOTO 900
 C
@@ -102,7 +107,7 @@ C
       WRITE(IOUT,2020)
       DO 10 I=1,NUMMAT
       READ(IIN,1000)N,E(N),VU(N),AREA(N)
-      WRITE(IOUT,2030)N,E(N),AREA(N)
+      WRITE(IOUT,2030)N,E(N),VU(N),AREA(N)
 10    CONTINUE
 C
       !读取单元信息
@@ -352,10 +357,10 @@ C
      &        ' NUMBER OF DIFFERENT SETS OF MATERIAL',/,                
      &        ' AND CROSS-SECTIONAL  CONSTANTS ',                       
      &                           4(' .'),'( NPAR(3) ) . . =',I5,//)
-2020  FORMAT ('  SET       YOUNG''S     CROSS-SECTIONAL',/,             
-     &        ' NUMBER     MODULUS',10X,'AREA',/,                       
+2020  FORMAT ('  SET       YOUNG''S      POISSON     CROSS-SECTIONAL',/,             
+     &        ' NUMBER     MODULUS',10X,'RATIO',10X,'AREA',/,                       
      &        15X,'E',14X,'A')
-2030  FORMAT (/,I5,4X,E12.5,2X,E14.6)
+2030  FORMAT (/,I5,4X,E12.5,2X,E14.6,2X,E14.6)
 2040  FORMAT (//,' E L E M E N T   I N F O R M A T I O N',///,          
      &        ' ELEMENT     NODE    NODE    NODE    NODE  MATERIAL',/,            
      &        ' NUMBER-N      I       J       K       L  SET NUMBER',/)
@@ -504,28 +509,12 @@ C
       IF (ITYPE.EQ.0) GO TO 120 
 C         
       !平面应力 
-      DO 110 I=1,3                                                       
-      XA=D(I,4)/D(4,4)                                                   
-      DO 110 J=I,3                                                       
-      D(I,J)=D(I,J) - D(4,J)*XA                                          
+      DO 110 I=1,3              
+      XA=D(I,4)/D(4,4)          
+      DO 110 J=I,3              
+      D(I,J)=D(I,J) - D(4,J)*XA 
       D(J,I)=D(I,J)
 110   CONTINUE
-C
-      !计算(0,0)点的雅克比阵及其行列式
-      AJ(1,1)=0.25D0*(XYZ(1,N)-XYZ(3,N)-XYZ(5,N)+XYZ(7,N))
-      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
-      AJ(2,1)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
-      AJ(2,2)=0.25D0*(XYZ(2,N)+XYZ(4,N)-XYZ(6,N)-XYZ(8,N))
-C
-      F0(1,1)=AJ(1,1)*AJ(1,1)
-      F0(1,2)=AJ(2,1)*AJ(1,2)
-      F0(1,3)=2.D0*AJ(1,1)*AJ(1,2)
-      F0(2,1)=F0(1,2)
-      F0(2,2)=AJ(2,2)*AJ(2,2)
-      F0(2,3)=2.D0*AJ(2,1)*AJ(2,2)
-      F0(3,1)=AJ(1,1)*AJ(2,1)
-      F0(3,2)=AJ(1,2)*AJ(2,2)
-      F0(3,3)=(AJ(1,1)*AJ(2,2)+AJ(1,2)*AJ(2,1))
 C
 120   IST=3
       IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
@@ -756,6 +745,217 @@ C
      &        'STRESS-Y',5X,'STRESS-XY',6X,'STRESS-Z',/,'  NUMBER',/) 
 2070  FORMAT (1X,I8,1X,I8,1X,I8,1X,E13.6,1X,E13.6,1X,E13.6,1X,E13.6)
 C
+      END
+C
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
+C+
+C+    2D- 4 NODES QUAD SIMO RIFAI ELEMENT
+C+
+C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
+      SUBROUTINE QUADSR(ID,X,Y,Z,U,MHT,E,VU,AREA,LM,XYZ,MATP)
+      IMPLICIT REAL*8(A-H,O-Z)
+      REAL A        !!!需要特别注意的地方, 当有IMPLICIT REAL*8的地方
+      COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
+      COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
+      COMMON /EL/ IND,NPAR(10),NUMEG,MTOT,NFIRST,NLAST,ITWO             
+      COMMON /VAR/ NG,MODEX                                             
+      COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
+      COMMON A(1)
+C
+      DIMENSION X(1),Y(1),Z(1),ID(3,1),E(1),VU(1),AREA(1),LM(8,1),
+     &          XYZ(8,1),MATP(1),U(1),MHT(1)
+      DIMENSION IX(4)
+      DIMENSION D(4,4),B(4,8),S(8,8),XG(4,4),WGT(4,4),DB(4,8),SW(36),
+     &          STS(4),STR(4),BB(4,8),GAU(8,8),GAA(4,4),DA(4)
+C
+C     AJ-(0,0)的雅克比矩阵\partial x/\partial \xi
+C     F0-转换矩阵F;     EX-局部坐标系下的假设应变
+C     BM-修正的B矩阵
+C     AH-假设应变法矩阵H; AG-假设应变法矩阵G
+C     GA-假设应变法矩阵gamma
+      DIMENSION AJ(2,2),F0(3,3),EX(8,8)
+C
+C+++++高斯积分点
+      DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
+     1 .5773502691896D0,   0.D0,   0.D0,   -.7745966692415D0,   0.D0,   
+     2 .7745966692415D0,   0.D0,   -.8611363115941D0,                   
+     3 -.3399810435849D0,   .3399810435849D0,   .8611363115941D0 /      
+C+++++高斯积分权重
+      DATA WGT /  2.D0,   0.D0,   0.D0,   0.D0,   1.D0,   1.D0,         
+     1 0.D0,   0.D0,   .5555555555556D0,   .8888888888889D0,            
+     2 .5555555555556D0,   0.D0,   .3478548451375D0,   .6521451548625D0,
+     3 .6521451548625D0,   .3478548451375D0 /   
+C
+      EQUIVALENCE (NPAR(1),NPAR1),(NPAR(2),NUME),(NPAR(3),NUMMAT)
+      ND=8        !单元自由度数
+      ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
+      NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
+      DO J=1,8
+      DO I=1,8
+      EX(I,J)=0.D0                        !假设应变矩阵初始化
+      ENDDO
+      ENDDO
+C
+      GOTO(100,200,300)IND
+C
+C     stage1: 数据输入阶段
+C
+100   WRITE(IOUT,2000)NPAR1,NUME
+      WRITE(IPOST2,'(5HCELLS,1X,I8,1X,I8)')NUME,NUME*4+NUME
+      IF(NUMMAT.EQ.0) NUMMAT=1
+      WRITE(IOUT,2010) NUMMAT
+C
+      !读取材料信息
+      WRITE(IOUT,2020)
+      DO 10 I=1,NUMMAT
+      READ(IIN,1000)N,E(N),VU(N),AREA(N)
+      WRITE(IOUT,2030)N,E(N),AREA(N)
+10    CONTINUE
+C
+      !读取单元信息
+      WRITE(IOUT,2040)
+20    READ(IIN,1010)N,(IX(J),J=1,4),MTYP
+      DO 21 I=1,4
+      L=IX(I)           !实际节点号
+      J=2*I-1           !自由度
+      K=J+1             !自由度
+      XYZ(J,N)=X(L)
+      XYZ(K,N)=Y(L)
+21    CONTINUE
+C
+      MATP(N)=MTYP
+C
+      !生成LM数组并计算列高
+      DO 30 I=1,8
+      LM(I,N)=0
+30    CONTINUE
+      DO 31 I=1,4
+      L=IX(I)
+      J=2*I-1
+      K=J+1
+      LM(J,N)=ID(1,L)   !生成LM数组
+      LM(K,N)=ID(2,L) 
+31    CONTINUE
+      CALL COLHT(MHT,ND,LM(1,N))         !计算列高
+C
+      !写出后处理
+      WRITE(IOUT,2050)N,(IX(J),J=1,4),MTYP
+      WRITE(IPOST2,'(I8,1X,I8,1X,I8,1X,I8,1X,I8)')4,(IX(I)-1,I=1,4)        !VTK文件
+      IF (N.EQ.NUME)THEN
+        WRITE(IPOST2,'(10HCELL_TYPES,1X,I8)')NUME
+        DO II=1,NUME
+          WRITE(IPOST2,'(I8)')9
+        ENDDO
+        GOTO 900                          !完成单元信息读取 退出循环
+      ENDIF
+C
+      GOTO 20                             !继续读取单元信息
+C
+      GOTO 900
+C
+C     stage2: 计算和组装刚度矩阵
+C
+200   DO 290 N=1,NUME
+      IMAT=MATP(N)
+      YM=E(IMAT)
+      PR=VU(IMAT)
+      THIC=AREA(IMAT)
+      F=YM/(1.+PR)                                                      
+      G=F*PR/(1.-2.*PR)                                                 
+      H=F + G                                                           
+C                                                                       
+      !平面应变
+      D(1,1)=H                                                          
+      D(1,2)=G                                                          
+      D(1,3)=0.                                                         
+      D(2,1)=G                                                          
+      D(2,2)=H                                                          
+      D(2,3)=0.                                                         
+      D(3,1)=0.                                                         
+      D(3,2)=0.                                                         
+      D(3,3)=F/2.                                                       
+      IF (ITYPE.EQ.1) THEN                                              
+      THIC=1.                                                           
+      GOTO 120    
+      ENDIF                                                             
+C                                                                       
+      !轴对称                                                                       
+      D(1,4)=G                                                          
+      D(2,4)=G                                                          
+      D(3,4)=0.                                                         
+      D(4,1)=G                                                          
+      D(4,2)=G                                                          
+      D(4,3)=0.                                                         
+      D(4,4)=H                                                          
+      IF (ITYPE.EQ.0) GO TO 120 
+C         
+      !平面应力 
+      DO 110 I=1,3              
+      XA=D(I,4)/D(4,4)          
+      DO 110 J=I,3              
+      D(I,J)=D(I,J) - D(4,J)*XA 
+      D(J,I)=D(I,J)
+110   CONTINUE
+C
+120   IST=3
+      IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
+C
+C     计算转换矩阵F0
+      !计算(0,0)点的雅可比矩阵AJ
+      AJ(1,1)=0.25D0*(XYZ(1,N)-XYZ(3,N)-XYZ(5,N)+XYZ(7,N))
+      AJ(2,1)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
+      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
+      AJ(2,2)=0.25D0*(XYZ(2,N)+XYZ(4,N)-XYZ(6,N)-XYZ(8,N))
+      HJ=AJ(1,1)*AJ(2,2)-AJ(1,2)*AJ(2,1) !DET J0
+C
+      !计算F0
+      F0(1,1)=AJ(1,1)*AJ(1,1)
+      F0(2,1)=AJ(1,2)*AJ(2,1)
+      F0(3,1)=AJ(1,1)*AJ(2,1)
+      F0(1,2)=F0(2,1)
+      F0(2,2)=AJ(2,2)*AJ(2,2)
+      F0(3,2)=AJ(1,2)*AJ(2,2)
+      F0(1,3)=2.D0*AJ(1,1)*AJ(1,2)
+      F0(2,3)=2.D0*AJ(2,1)*AJ(2,2)
+      F0(3,3)=AJ(1,1)*AJ(2,2)+F0(2,1)     !AJ(1,2)*AJ(2,1)
+C
+C     计算单元刚度矩阵
+      DO 280 LX=1,NINT
+      RI=XG(LX,NINT)
+      DO 280 LY=1,NINT
+      SI=XG(LY,NINT)
+      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,NEL,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
+      IF (ITYPE.GT.0) XBAR=THIC
+      WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
+C
+C     求解标准位移法刚度阵对称部分
+      DO 180 J=1,8
+      !计算DB=D*B
+      DO 150 K=1,IST
+      DB(K,J)=0.D0
+      DO 140 L=1,IST
+      DB(K,J)=DB(K,J)+D(K,L)*B(L,J)
+140   CONTINUE
+150   CONTINUE
+C
+      DO 170 I=J,8
+      STIFF=0.D0
+      DO 160 K=1,IST
+      STIFF=STIFF+B(K,I)*DB(K,J)
+160   CONTINUE
+      S(I,J)=S(I,J)+STIFF*WT
+170   CONTINUE
+180   CONTINUE
+C
+C     
+290   CONTINUE                            !结束单元循环
+      GOTO 900
+C
+C     STAGE 3: BACK SUPSTITUTE TO CALCULATE STRESS
+C
+300   CONTINUE
+
+900   RETURN
       END
 C
       SUBROUTINE QUAD0(NEL,ITYPE,NINT,THIC,YM,PR,XX,S,IOUT)            
