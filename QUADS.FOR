@@ -527,21 +527,24 @@ C
       F0(3,2)=AJ(1,2)*AJ(2,2)
       F0(3,3)=(AJ(1,1)*AJ(2,2)+AJ(1,2)*AJ(2,1))
 C
-      !计算单元刚度矩阵
-120   DO 130 J=1,8                  !初始化单元刚度矩阵
-      DO I=1,3
+120   IST=3
+      IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
+C
+C     计算单元刚度矩阵
+      !初始化单元矩阵
+      DO 130 J=1,8                  
+      DO I=1,IST
       B(I,J)=0.D0                   !初始化B矩阵
       BB(I,J)=0.D0
+      IF(J.LE.4)GAA(I,J)=0.D0
       ENDDO
       DO I=1,8
       S(I,J)=0.D0
       GAU(I,J)=0.D0                 !初始化附加刚度矩阵
-      GAA(I,J)=0.D0                 !初始化附加刚度矩阵对称部分
       ENDDO
 130   CONTINUE
-      IST=3
-      IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
-      DO 280 LX=1,NINT
+C
+      DO 280 LX=1,NINT              !开始积分点循环
       RI=XG(LX,NINT)
       DO 280 LY=1,NINT
       SI=XG(LY,NINT)
@@ -567,16 +570,15 @@ C
       S(I,J)=S(I,J)+STIFF*WT
 170   CONTINUE
 180   CONTINUE
+      !GOTO 280
 C
 C     求解不协调位移部分的刚度
       DO 270 J=1,4
       !计算DA=D*BB
-      DO 210 K=1,IST
+      DO 190 K=1,IST
       DA(K)=0.D0
       DO 190 L=1,IST
-      DA(K)=DA(K)+D(K,L)*BB(L,J)
-190   CONTINUE
-210   CONTINUE
+190   DA(K)=DA(K)+D(K,L)*BB(L,J)
 C
       DO 230 I=J,4
       STIFF=0.D0
@@ -589,11 +591,12 @@ C
       DO 250 I=1,8
       STIFF=0.D0
       DO 240 K=1,IST
-      STIFF=STIFF+BB(K,I)*DA(K)
+      STIFF=STIFF+B(K,I)*DA(K)
 240   CONTINUE
       GAU(I,J)=GAU(I,J)+STIFF*WT
 250   CONTINUE
-270   CONTINUE
+C
+270   CONTINUE                      !结束不协调位移刚度计算
 C
 280   CONTINUE                      !结束积分点循环
 C
@@ -625,7 +628,105 @@ C
 C
       GOTO 900
 C
-300   CONTINUE
+C     STAGE3: 回代求解应力
+C
+300   IPRINT=0
+      WRITE(IPOST,'(9HCELL_DATA,1X,I8)')NUME 
+      WRITE(IPOST,'(7HVECTORS,1X,8HSTRESSii,1X,5HFLOAT)')            !正应力
+      DO 390 N=1,NUME
+      IPRINT=IPRINT+1
+      IF(IPRINT.GT.50)IPRINT=1
+      IF(IPRINT.EQ.1)WRITE (IOUT,2060) NG
+C
+C     计算弹性矩阵
+C
+      IMAT=MATP(N)
+      YM=E(IMAT)
+      PR=VU(IMAT)
+      THIC=AREA(IMAT)
+      F=YM/(1.+PR)                                                      
+      G=F*PR/(1.-2.*PR)                                                 
+      H=F + G                                                           
+C                                                                       
+      !平面应变
+      D(1,1)=H                                                          
+      D(1,2)=G                                                          
+      D(1,3)=0.                                                         
+      D(2,1)=G                                                          
+      D(2,2)=H                                                          
+      D(2,3)=0.                                                         
+      D(3,1)=0.                                                         
+      D(3,2)=0.                                                         
+      D(3,3)=F/2.                                                       
+      IF (ITYPE.EQ.1) THEN                                              
+      THIC=1.                                                           
+      GOTO 320                                                          
+      ENDIF                                                             
+C                                                                       
+      !轴对称                                                                       
+      D(1,4)=G                                                          
+      D(2,4)=G                                                          
+      D(3,4)=0.                                                         
+      D(4,1)=G                                                          
+      D(4,2)=G                                                          
+      D(4,3)=0.                                                         
+      D(4,4)=H                                                          
+      IF (ITYPE.EQ.0) GO TO 320                                          
+C                                                                       
+      !平面应力 
+      DO 310 I=1,3                                                       
+      XA=D(I,4)/D(4,4)                                                   
+      DO 310 J=I,3                                                       
+      D(I,J)=D(I,J) - D(4,J)*XA                                          
+      D(J,I)=D(I,J)
+310   CONTINUE
+C
+C     计算积分点应力(以下代码和QUAD4相同,求解应力是相同的)
+C
+320   IST=3
+      IF(ITYPE.EQ.0)IST=4           !轴对称弹性矩阵是4*4
+      DO I=1,IST
+      STR(I)=0.D0                   !计算单元内平均应力
+      ENDDO
+      DO 380 LX=1,NINT
+      RI=XG(LX,NINT)
+      DO 380 LY=1,NINT
+      SI=XG(LY,NINT)
+      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,NEL,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
+      IF (ITYPE.GT.0) XBAR=THIC
+      WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
+C
+      !计算积分点应力分量
+      DO 330 I=1,IST
+      STS(I)=0.D0                   !积分点应力初始化
+330   CONTINUE
+C
+      DO 370 J=1,8
+      I=LM(J,N)                     !节点自由度
+      IF(I.LE.0)GOTO 370
+      DO 340 K=1,IST                !计算DB=D*B矩阵
+      DB(K,J)=0.0
+      DO 340 L=1,IST
+      DB(K,J)=DB(K,J)+D(K,L)*B(L,J)
+340   CONTINUE
+C
+      DO 350 K=1,IST
+      STS(K)=STS(K)+DB(K,J)*U(I)
+350   CONTINUE
+C
+370   CONTINUE                      !单元自由度循环
+C
+      WRITE(IOUT,2070)N,LX,LY,STS
+      DO 371 I=1,IST                !将各个积分点的应力累加,最后求平均输出到vtk文件中
+      STR(I)=STR(I)+STS(I)
+371   CONTINUE
+C
+380   CONTINUE                      !积分点循环
+      DO 381 I=1,IST
+      STR(I)=STR(I)/NINT/NINT
+381   CONTINUE
+      WRITE(IPOST,'(3E16.9)')(STR(I),I=1,3)
+390   CONTINUE                      !单元循环
 C
 900   RETURN
 C
