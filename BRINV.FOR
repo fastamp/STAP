@@ -1,5 +1,5 @@
 C
-      SUBROUTINE BRINV(A,N,L,IS,JS)
+      SUBROUTINE BRINV(A,N,L)
 C     采用全选主元高斯-约当法求实矩阵的逆矩阵
 C     A-二维数组
 C     N-矩阵阶数
@@ -7,7 +7,7 @@ C     L-输出参数 L=0矩阵奇异求逆失败, l.ne.0 正常
 C     IS,JS: 一维整形数组, 长度为N, 程序的工作数组
 !       实数矩阵求逆
       IMPLICIT REAL*8 (A-H,O-Z)     
-      DIMENSION A(N,N),IS(N),JS(N)
+      DIMENSION A(N,N),IS(100),JS(100)
 !	DOUBLE PRECISION A,T,D
       L=1
       DO 100 K=1,N

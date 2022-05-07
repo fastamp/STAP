@@ -3,5 +3,5 @@
 	<Configurations>
 		<Configuration Name="Debug|Win32"/>
 		<Configuration Name="Release|Win32"/>
-		<Configuration Name="Debug|x64" CommandArguments="E:\Coding\STAP\simu\TRUSS.inp"/>
+		<Configuration Name="Debug|x64" CommandArguments="E:\Coding\STAP\simu\bending.inp"/>
 		<Configuration Name="Release|x64"/></Configurations></VisualStudioUserFile>
