@@ -754,6 +754,7 @@ C+
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
       SUBROUTINE QUADSR(ID,X,Y,Z,U,MHT,E,VU,AREA,LM,XYZ,MATP)
       IMPLICIT REAL*8(A-H,O-Z)
+      PARAMETER(NEAS=4)                   !假设应变矩阵列数
       REAL A        !!!需要特别注意的地方, 当有IMPLICIT REAL*8的地方
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
       COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
@@ -766,14 +767,15 @@ C
      &          XYZ(8,1),MATP(1),U(1),MHT(1)
       DIMENSION IX(4)
       DIMENSION D(4,4),B(4,8),S(8,8),XG(4,4),WGT(4,4),DB(4,8),SW(36),
-     &          STS(4),STR(4),BB(4,8),GAU(8,8),GAA(4,4),DA(4)
+     &          STS(4),STR(4)
 C
 C     AJ-(0,0)的雅克比矩阵\partial x/\partial \xi
-C     F0-转换矩阵F;     EX-局部坐标系下的假设应变
-C     BM-修正的B矩阵
-C     AH-假设应变法矩阵H; AG-假设应变法矩阵G
-C     GA-假设应变法矩阵gamma
-      DIMENSION AJ(2,2),F0(3,3),EX(8,8)
+C     F0-转换矩阵F; EX-局部坐标系下的假设应变 最大支持多个应变分量
+C     AG-假设应变法矩阵G;  GAU-不协调刚度阵左上分矩阵
+C     GAA-不协调刚度阵对角线部分(对称),最大支持8列假设应变;   
+C     DA-存储矩阵相乘的结果类似DB
+      DIMENSION AJ(2,2),F0(3,3),EX(4,8),AG(4,8),GAU(8,NEAS),
+     &          GAA(NEAS,NEAS),DA(4)
 C
 C+++++高斯积分点
       DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
@@ -790,8 +792,8 @@ C
       ND=8        !单元自由度数
       ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
       NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
-      DO J=1,8
-      DO I=1,8
+      DO J=1,NEAS
+      DO I=1,4
       EX(I,J)=0.D0                        !假设应变矩阵初始化
       ENDDO
       ENDDO
@@ -901,25 +903,33 @@ C
       IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
 C
 C     计算转换矩阵F0
-      !计算(0,0)点的雅可比矩阵AJ
+      !计算(0,0)点的雅可比矩阵AJ->论文的雅可比
       AJ(1,1)=0.25D0*(XYZ(1,N)-XYZ(3,N)-XYZ(5,N)+XYZ(7,N))
-      AJ(2,1)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
-      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
+      AJ(2,1)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
+      AJ(1,2)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
       AJ(2,2)=0.25D0*(XYZ(2,N)+XYZ(4,N)-XYZ(6,N)-XYZ(8,N))
       HJ=AJ(1,1)*AJ(2,2)-AJ(1,2)*AJ(2,1) !DET J0
 C
       !计算F0
       F0(1,1)=AJ(1,1)*AJ(1,1)
-      F0(2,1)=AJ(1,2)*AJ(2,1)
+      F0(2,1)=AJ(2,1)*AJ(2,1)    !AJ(1,2)*AJ(2,1)
       F0(3,1)=AJ(1,1)*AJ(2,1)
-      F0(1,2)=F0(2,1)
+      F0(1,2)=AJ(1,2)*AJ(1,2)    !F0(2,1)
       F0(2,2)=AJ(2,2)*AJ(2,2)
       F0(3,2)=AJ(1,2)*AJ(2,2)
       F0(1,3)=2.D0*AJ(1,1)*AJ(1,2)
       F0(2,3)=2.D0*AJ(2,1)*AJ(2,2)
-      F0(3,3)=AJ(1,1)*AJ(2,2)+F0(2,1)     !AJ(1,2)*AJ(2,1)
+      F0(3,3)=AJ(1,1)*AJ(2,2)+AJ(1,2)*AJ(2,1)
+      CALL BRINV(F0,3,L)
+      IF(L.EQ.0)WRITE(IOUT,'(18HF0 INVERSE ERROR!!)')
 C
 C     计算单元刚度矩阵
+      !初始化单元矩阵
+      CALL ZEROD(GAA,NEAS*NEAS)
+      CALL ZEROD(GAU,NEAS*8)
+      CALL ZEROD(B,32)
+      CALL ZEROD(S,64)
+C
       DO 280 LX=1,NINT
       RI=XG(LX,NINT)
       DO 280 LY=1,NINT
@@ -927,6 +937,20 @@ C     计算单元刚度矩阵
       CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,NEL,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
       IF (ITYPE.GT.0) XBAR=THIC
       WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
+C     
+C     假设应变赋值
+      EX(1,1)=RI
+      EX(2,2)=SI
+      EX(3,3)=RI
+      EX(3,4)=SI
+C      EX(1,1)=RI
+C      EX(1,5)=RI*SI
+C      EX(2,2)=SI
+C      EX(2,6)=EX(1,5)
+C      EX(3,3)=RI
+C      EX(3,4)=SI
+C      EX(3,5)=RI*RI
+C      EX(3,6)=SI*SI
 C
 C     求解标准位移法刚度阵对称部分
       DO 180 J=1,8
@@ -947,15 +971,196 @@ C
 170   CONTINUE
 180   CONTINUE
 C
-C     
-290   CONTINUE                            !结束单元循环
+C     求解不协调位移部分的刚度
+      !计算AG=F^t*EX
+      DO 195 J=1,NEAS
+      DO 192 I=1,IST
+      STIFF=0.D0
+      DO 190 K=1,IST
+190   STIFF=STIFF+F0(K,I)*EX(K,J)
+192   AG(I,J)=STIFF*HJ/DET
+195   CONTINUE
+C
+      DO 270 J=1,NEAS
+      !计算DA=D*AG
+      DO 205 K=1,IST
+      DA(K)=0.D0
+      DO 205 L=1,IST
+205   DA(K)=DA(K)+D(K,L)*AG(L,J)
+C
+      DO 230 I=J,NEAS
+      STIFF=0.D0
+      DO 220 K=1,IST
+      STIFF=STIFF+AG(K,I)*DA(K)
+220   CONTINUE
+      GAA(I,J)=GAA(I,J)+STIFF*WT
+230   CONTINUE
+C
+      DO 250 I=1,8
+      STIFF=0.D0
+      DO 240 K=1,IST
+      STIFF=STIFF+B(K,I)*DA(K)
+240   CONTINUE
+      GAU(I,J)=GAU(I,J)+STIFF*WT
+250   CONTINUE
+C
+270   CONTINUE                      !结束不协调位移刚度计算
+C
+280   CONTINUE                            !结束积分点循环
+C
+C     内部自由度凝聚
+      DO 281 J=1,NEAS
+      DO 281 I=J,NEAS
+      GAA(J,I)=GAA(I,J)             !GAA是对称矩阵
+281   CONTINUE
+      CALL BRINV(GAA,NEAS,L)        !矩阵求逆
+      DO 288 J=1,8
+      DO 286 I=J,8
+      STIFF=0.D0
+      DO 284 K=1,4
+      DO 284 L=1,4
+284   STIFF=STIFF+GAU(I,K)*GAA(K,L)*GAU(J,L)
+      S(I,J)=S(I,J)-STIFF
+286   CONTINUE
+288   CONTINUE
+C
+C     组装单元刚度矩阵
+      IJ=0
+      DO 289 J=1,8
+      DO 289 I=J,8
+      IJ=IJ+1
+289   SW(IJ)=S(I,J)
+      CALL ADDBAN(A(N3),A(N2),SW,LM(1,N),ND)
+C
+290   CONTINUE                      !结束单元循环
       GOTO 900
 C
 C     STAGE 3: BACK SUPSTITUTE TO CALCULATE STRESS
 C
-300   CONTINUE
-
+300   IPRINT=0
+      WRITE(IPOST,'(9HCELL_DATA,1X,I8)')NUME 
+      WRITE(IPOST,'(7HVECTORS,1X,8HSTRESSii,1X,5HFLOAT)')            !正应力
+      DO 390 N=1,NUME
+      IPRINT=IPRINT+1
+      IF(IPRINT.GT.50)IPRINT=1
+      IF(IPRINT.EQ.1)WRITE (IOUT,2060) NG
+C
+C     计算弹性矩阵
+C
+      IMAT=MATP(N)
+      YM=E(IMAT)
+      PR=VU(IMAT)
+      THIC=AREA(IMAT)
+      F=YM/(1.+PR)                                                      
+      G=F*PR/(1.-2.*PR)                                                 
+      H=F + G                                                           
+C                                                                       
+      !平面应变
+      D(1,1)=H                                                          
+      D(1,2)=G                                                          
+      D(1,3)=0.                                                         
+      D(2,1)=G                                                          
+      D(2,2)=H                                                          
+      D(2,3)=0.                                                         
+      D(3,1)=0.                                                         
+      D(3,2)=0.                                                         
+      D(3,3)=F/2.                                                       
+      IF (ITYPE.EQ.1) THEN                                              
+      THIC=1.                                                           
+      GOTO 320                                                          
+      ENDIF                                                             
+C                                                                       
+      !轴对称                                                                       
+      D(1,4)=G                                                          
+      D(2,4)=G                                                          
+      D(3,4)=0.                                                         
+      D(4,1)=G                                                          
+      D(4,2)=G                                                          
+      D(4,3)=0.                                                         
+      D(4,4)=H                                                          
+      IF (ITYPE.EQ.0) GO TO 320                                          
+C                                                                       
+      !平面应力 
+      DO 310 I=1,3                                                       
+      XA=D(I,4)/D(4,4)                                                   
+      DO 310 J=I,3                                                       
+      D(I,J)=D(I,J) - D(4,J)*XA                                          
+      D(J,I)=D(I,J)
+310   CONTINUE
+C
+C     计算积分点应力(以下代码和QUAD4相同,求解应力是相同的)
+C
+320   IST=3
+      IF(ITYPE.EQ.0)IST=4           !轴对称弹性矩阵是4*4
+      DO I=1,IST
+      STR(I)=0.D0                   !计算单元内平均应力
+      ENDDO
+      DO 380 LX=1,NINT
+      RI=XG(LX,NINT)
+      DO 380 LY=1,NINT
+      SI=XG(LY,NINT)
+      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,NEL,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
+      IF (ITYPE.GT.0) XBAR=THIC
+      WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
+C
+      !计算积分点应力分量
+      DO 330 I=1,IST
+      STS(I)=0.D0                   !积分点应力初始化
+330   CONTINUE
+C
+      DO 370 J=1,8
+      I=LM(J,N)                     !节点自由度
+      IF(I.LE.0)GOTO 370
+      DO 340 K=1,IST                !计算DB=D*B矩阵
+      DB(K,J)=0.0
+      DO 340 L=1,IST
+      DB(K,J)=DB(K,J)+D(K,L)*B(L,J)
+340   CONTINUE
+C
+      DO 350 K=1,IST
+      STS(K)=STS(K)+DB(K,J)*U(I)
+350   CONTINUE
+C
+370   CONTINUE                      !单元自由度循环
+C
+      WRITE(IOUT,2070)N,LX,LY,STS
+      DO 371 I=1,IST                !将各个积分点的应力累加,最后求平均输出到vtk文件中
+      STR(I)=STR(I)+STS(I)
+371   CONTINUE
+C
+380   CONTINUE                      !积分点循环
+      DO 381 I=1,IST
+      STR(I)=STR(I)/NINT/NINT
+381   CONTINUE
+      WRITE(IPOST,'(3E16.9)')(STR(I),I=1,3)
+390   CONTINUE                      !单元循环
+C
 900   RETURN
+1000  FORMAT(I,3F)
+1010  FORMAT(6I)
+2000  FORMAT(' E L E M E N T   D E F I N I T I O N',///,               
+     &        ' ELEMENT TYPE ',13(' .'),'( NPAR(1) ) . . =',I5,/,       
+     &        '     EQ.1, TRUSS ELEMENTS',/,                            
+     &        '     EQ.2, QUADS ELEMENTS',/,                        
+     &        '     EQ.3, NOT AVAILABLE',//,                            
+     &        ' NUMBER OF ELEMENTS.',10(' .'),'( NPAR(2) ) . . =',I5,//)
+2010  FORMAT (' M A T E R I A L   D E F I N I T I O N',///,             
+     &        ' NUMBER OF DIFFERENT SETS OF MATERIAL',/,                
+     &        ' AND CROSS-SECTIONAL  CONSTANTS ',                       
+     &                           4(' .'),'( NPAR(3) ) . . =',I5,//)
+2020  FORMAT ('  SET       YOUNG''S     CROSS-SECTIONAL',/,             
+     &        ' NUMBER     MODULUS',10X,'AREA',/,                       
+     &        15X,'E',14X,'A')
+2030  FORMAT (/,I5,4X,E12.5,2X,E14.6)
+2040  FORMAT (//,' E L E M E N T   I N F O R M A T I O N',///,          
+     &        ' ELEMENT     NODE    NODE    NODE    NODE  MATERIAL',/,            
+     &        ' NUMBER-N      I       J       K       L  SET NUMBER',/)
+2050  FORMAT (I8,1X,4I8,2X,I8)
+2060  FORMAT (///,' S T R E S S  C A L C U L A T I O N S  F O R  ',     
+     &        'E L E M E N T  G R O U P',I4,//,                         
+     &        '  ELEMENT',5X,'LOCX',5X,'LOCY',6X,'STRESS-X',6X,                   
+     &        'STRESS-Y',5X,'STRESS-XY',6X,'STRESS-Z',/,'  NUMBER',/) 
+2070  FORMAT (1X,I8,1X,I8,1X,I8,1X,E13.6,1X,E13.6,1X,E13.6,1X,E13.6)
       END
 C
       SUBROUTINE QUAD0(NEL,ITYPE,NINT,THIC,YM,PR,XX,S,IOUT)            

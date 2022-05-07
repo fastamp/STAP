@@ -121,3 +121,11 @@ C
 C                                                                       
       END
 C
+      SUBROUTINE ZEROD(A,N)
+      IMPLICIT REAL*8(A-H,O-Z)
+      DIMENSION A(N)
+      DO I=1,N
+      A(I)=0.D0
+      ENDDO
+      RETURN
+      END
