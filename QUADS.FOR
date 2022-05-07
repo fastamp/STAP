@@ -392,7 +392,7 @@ C     AJ-(0,0)的雅克比矩阵\partial x/\partial \xi
 C     F0-转换矩阵F;     BM-修正的B矩阵
 C     AH-假设应变法矩阵H; AG-假设应变法矩阵G
 C     GA-假设应变法矩阵gamma
-      DIMENSION AJ(2,2),F0(3,3),BM(4,8),AH(4,4),GA(4,4)
+C      DIMENSION AJ(2,2),F0(3,3),BM(4,8),AH(4,4),GA(4,4)
 C
 C+++++高斯积分点
       DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
@@ -510,22 +510,6 @@ C
       D(I,J)=D(I,J) - D(4,J)*XA                                          
       D(J,I)=D(I,J)
 110   CONTINUE
-C
-      !计算(0,0)点的雅克比阵及其行列式
-      AJ(1,1)=0.25D0*(XYZ(1,N)-XYZ(3,N)-XYZ(5,N)+XYZ(7,N))
-      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
-      AJ(2,1)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
-      AJ(2,2)=0.25D0*(XYZ(2,N)+XYZ(4,N)-XYZ(6,N)-XYZ(8,N))
-C
-      F0(1,1)=AJ(1,1)*AJ(1,1)
-      F0(1,2)=AJ(2,1)*AJ(1,2)
-      F0(1,3)=2.D0*AJ(1,1)*AJ(1,2)
-      F0(2,1)=F0(1,2)
-      F0(2,2)=AJ(2,2)*AJ(2,2)
-      F0(2,3)=2.D0*AJ(2,1)*AJ(2,2)
-      F0(3,1)=AJ(1,1)*AJ(2,1)
-      F0(3,2)=AJ(1,2)*AJ(2,2)
-      F0(3,3)=(AJ(1,1)*AJ(2,2)+AJ(1,2)*AJ(2,1))
 C
 120   IST=3
       IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
