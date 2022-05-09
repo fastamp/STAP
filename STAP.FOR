@@ -661,7 +661,7 @@ C .        A(NWK)    = D AND L - FACTORS OF STIFFNESS MATRIX          .
 C .        V(NN)     = DISPLACEMENT VECTOR                            . 
 C .                                                                   . 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)                               
+      IMPLICIT REAL*8(A-H,O-Z)                               
       COMMON /TAPES/ IELMNT,ILOAD,IIN,IOUT,IPOST,IPOST2
       DIMENSION A(NWK),V(1),MAXA(1)                                     
 C                                                                       
@@ -684,13 +684,13 @@ C
       ND=MAXA(K+1) - KI - 1                                             
       IF (ND) 80,80,60                                                  
    60 KK=MIN0(IC,ND)                                                    
-      C=0.                                                              
+      C=0.D0
       DO 70 L=1,KK                                                      
    70 C=C + A(KI+L)*A(KLT+L)                                            
       A(KLT)=A(KLT) - C                                                 
    80 K=K + 1                                                           
    90 K=N                                                               
-      B=0.                                                              
+      B=0.D0
       DO 100 KK=KL,KU                                                   
       K=K - 1                                                           
       KI=MAXA(K)                                                        
