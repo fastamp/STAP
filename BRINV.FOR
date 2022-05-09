@@ -8,14 +8,14 @@ C     IS,JS: 一维整形数组, 长度为N, 程序的工作数组
 !       实数矩阵求逆
       IMPLICIT REAL*8 (A-H,O-Z)     
       DIMENSION A(N,N),IS(100),JS(100)
-!	DOUBLE PRECISION A,T,D
+C
       L=1
       DO 100 K=1,N
 	  D=0.0
 	  DO 10 I=K,N
 	  DO 10 J=K,N
-	    IF (ABS(A(I,J)).GT.D) THEN
-	      D=ABS(A(I,J))
+	    IF (DABS(A(I,J)).GT.D) THEN
+	      D=DABS(A(I,J))
 	      IS(K)=I
 	      JS(K)=J
 	    END IF
@@ -36,7 +36,7 @@ C     IS,JS: 一维整形数组, 长度为N, 程序的工作数组
 	    A(I,K)=A(I,JS(K))
 	    A(I,JS(K))=T
 40	  CONTINUE
-	  A(K,K)=1/A(K,K)
+	  A(K,K)=1.D0/A(K,K)
 	  DO 50 J=1,N
 	    IF (J.NE.K) THEN
 	      A(K,J)=A(K,J)*A(K,K)
