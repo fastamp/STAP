@@ -754,7 +754,7 @@ C+
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
       SUBROUTINE QUADSR(ID,X,Y,Z,U,MHT,E,VU,AREA,LM,XYZ,MATP)
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER(NEAS=4)                   !假设应变矩阵列数
+      PARAMETER(NEAS=5)                   !假设应变矩阵列数
       REAL A        !!!需要特别注意的地方, 当有IMPLICIT REAL*8的地方
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
       COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
@@ -775,7 +775,7 @@ C     AG-假设应变法矩阵G;  GAU-不协调刚度阵左上分矩阵
 C     GAA-不协调刚度阵对角线部分(对称),最大支持8列假设应变;   
 C     DA-存储矩阵相乘的结果类似DB
       DIMENSION AJ(2,2),F0(3,3),EX(4,8),AG(4,8),GAU(8,NEAS),
-     &          GAA(NEAS,NEAS),DA(4)
+     &          GAA(NEAS,NEAS),DA(4),DC(NEAS)
 C
 C+++++高斯积分点
       DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
@@ -792,11 +792,7 @@ C
       ND=8        !单元自由度数
       ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
       NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
-      DO J=1,NEAS
-      DO I=1,4
-      EX(I,J)=0.D0                        !假设应变矩阵初始化
-      ENDDO
-      ENDDO
+      CALL ZEROD(EX,32)                   !假设应变矩阵初始化
 C
       GOTO(100,200,300)IND
 C
@@ -862,20 +858,20 @@ C
       YM=E(IMAT)
       PR=VU(IMAT)
       THIC=AREA(IMAT)
-      F=YM/(1.+PR)                                                      
-      G=F*PR/(1.-2.*PR)                                                 
+      F=YM/(1.D0+PR)
+      G=F*PR/(1.D0-2.D0*PR)
       H=F + G                                                           
 C                                                                       
       !平面应变
       D(1,1)=H                                                          
       D(1,2)=G                                                          
-      D(1,3)=0.                                                         
+      D(1,3)=0.D0
       D(2,1)=G                                                          
       D(2,2)=H                                                          
-      D(2,3)=0.                                                         
-      D(3,1)=0.                                                         
-      D(3,2)=0.                                                         
-      D(3,3)=F/2.                                                       
+      D(2,3)=0.D0
+      D(3,1)=0.D0
+      D(3,2)=0.D0
+      D(3,3)=0.5D0*F
       IF (ITYPE.EQ.1) THEN                                              
       THIC=1.                                                           
       GOTO 120    
@@ -884,10 +880,10 @@ C
       !轴对称                                                                       
       D(1,4)=G                                                          
       D(2,4)=G                                                          
-      D(3,4)=0.                                                         
+      D(3,4)=0.D0
       D(4,1)=G                                                          
       D(4,2)=G                                                          
-      D(4,3)=0.                                                         
+      D(4,3)=0.D0
       D(4,4)=H                                                          
       IF (ITYPE.EQ.0) GO TO 120 
 C         
@@ -903,22 +899,26 @@ C
       IF(ITYPE.EQ.0)IST=4           !轴对称的弹性阵是4*4
 C
 C     计算转换矩阵F0
-      !计算(0,0)点的雅可比矩阵AJ->论文的雅可比
+      !计算(0,0)点的雅可比矩阵AJ,参考论文
       AJ(1,1)=0.25D0*(XYZ(1,N)-XYZ(3,N)-XYZ(5,N)+XYZ(7,N))
-      AJ(2,1)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
-      AJ(1,2)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
+      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
+      AJ(2,1)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
       AJ(2,2)=0.25D0*(XYZ(2,N)+XYZ(4,N)-XYZ(6,N)-XYZ(8,N))
       HJ=AJ(1,1)*AJ(2,2)-AJ(1,2)*AJ(2,1) !DET J0
+C      AJ(1,1)=AJ(1,1)/HJ
+C      AJ(2,1)=-AJ(2,1)/HJ
+C      AJ(1,2)=-AJ(1,2)/HJ
+C      AJ(2,2)=AJ(2,2)/HJ
 C
       !计算F0
       F0(1,1)=AJ(1,1)*AJ(1,1)
-      F0(2,1)=AJ(2,1)*AJ(2,1)    !AJ(1,2)*AJ(2,1)
-      F0(3,1)=AJ(1,1)*AJ(2,1)
-      F0(1,2)=AJ(1,2)*AJ(1,2)    !F0(2,1)
+      F0(1,2)=AJ(2,1)*AJ(2,1)
+      F0(1,3)=AJ(1,1)*AJ(2,1)
+      F0(2,1)=AJ(1,2)*AJ(1,2)
       F0(2,2)=AJ(2,2)*AJ(2,2)
-      F0(3,2)=AJ(1,2)*AJ(2,2)
-      F0(1,3)=2.D0*AJ(1,1)*AJ(1,2)
-      F0(2,3)=2.D0*AJ(2,1)*AJ(2,2)
+      F0(2,3)=AJ(1,2)*AJ(2,2)
+      F0(3,1)=2.D0*AJ(1,1)*AJ(1,2)
+      F0(3,2)=2.D0*AJ(2,1)*AJ(2,2)
       F0(3,3)=AJ(1,1)*AJ(2,2)+AJ(1,2)*AJ(2,1)
       CALL BRINV(F0,3,L)
       IF(L.EQ.0)WRITE(IOUT,'(18HF0 INVERSE ERROR!!)')
@@ -934,22 +934,22 @@ C
       RI=XG(LX,NINT)
       DO 280 LY=1,NINT
       SI=XG(LY,NINT)
-      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,NEL,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
+      CALL STDM(XYZ(1,N),B,DET,RI,SI,XBAR,N,ITYPE,IOUT)   !计算形函数的导数B和雅克比行列式DET
       IF (ITYPE.GT.0) XBAR=THIC
       WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
 C     
 C     假设应变赋值
-      EX(1,1)=RI
-      EX(2,2)=SI
-      EX(3,3)=RI
-      EX(3,4)=SI
 C      EX(1,1)=RI
-C      EX(1,5)=RI*SI
 C      EX(2,2)=SI
-C      EX(2,5)=-EX(1,5)
 C      EX(3,3)=RI
 C      EX(3,4)=SI
-C      EX(3,5)=RI*RI-SI*SI
+      EX(1,1)=RI
+      EX(1,5)=RI*SI
+      EX(2,2)=SI
+      EX(2,5)=-EX(1,5)
+      EX(3,3)=RI
+      EX(3,4)=SI
+      EX(3,5)=RI*RI-SI*SI
 C
 C     求解标准位移法刚度阵对称部分
       DO 180 J=1,8
@@ -1012,15 +1012,22 @@ C     内部自由度凝聚
       DO 281 I=J,NEAS
       GAA(J,I)=GAA(I,J)             !GAA是对称矩阵
 281   CONTINUE
+C
       CALL BRINV(GAA,NEAS,L)        !矩阵求逆
+      IF(L.EQ.0)WRITE(IOUT,'(19HGAA INVERSE ERROR!!)')
+C
       DO 288 J=1,8
+      DO 282 K=1,NEAS
+      DC(K)=0.D0
+      DO 282 L=1,NEAS
+282   DC(K)=DC(K)+GAA(K,L)*GAU(J,L)
+C
       DO 286 I=J,8
       STIFF=0.D0
       DO 284 K=1,NEAS
-      DO 284 L=1,NEAS
-284   STIFF=STIFF+GAU(I,K)*GAA(K,L)*GAU(J,L)
-      S(I,J)=S(I,J)-STIFF
-286   CONTINUE
+284   STIFF=STIFF+GAU(I,K)*DC(K)
+286   S(I,J)=S(I,J)-STIFF
+C
 288   CONTINUE
 C
 C     组装单元刚度矩阵
