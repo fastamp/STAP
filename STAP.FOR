@@ -34,8 +34,8 @@ C .   SPEED STORAGE THAT CAN BE USED FOR SOLUTION. TO CHANGE THE HIGH .
 C .   SPEED STORAGE AVAILABLE FOR EXECUTION, CHANGE THE VALUE OF MTOT . 
 C .   AND CORRESPONDINGLY COMMON A(MTOT).                             . 
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
-      COMMON A(10000)                                                   
-      MTOT=10000                                                        
+      COMMON A(10000000)
+      MTOT=10000000
 C . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 
 C .   DOUBLE PRECISION LINE                                           . 
 C .     ITWO = 1 SINGLE PRECISION ARITHMETIC                          . 

@@ -7337,26 +7337,6 @@
 *Solid Section, elset=Set-1, material=Material-1
 1.,
 *End Part
-**  
-**
-** ASSEMBLY
-**
-*Assembly, name=Assembly
-**  
-*Instance, name=Part-1-1, part=Part-1
-*End Instance
-**  
-*Nset, nset=Set-1, instance=Part-1-1, generate
-    1,  3661,    61
-*Elset, elset=Set-1, instance=Part-1-1, generate
-    1,  3541,    60
-*Elset, elset=_Surf-1_S2, internal, instance=Part-1-1, generate
-   60,  3600,    60
-*Surface, type=ELEMENT, name=Surf-1
-_Surf-1_S2, S2
-*End Assembly
-*Amplitude, name=Amp-1
-             0.,              1.,              1.,              1.
 ** 
 ** MATERIALS
 ** 

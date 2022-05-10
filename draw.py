@@ -12,8 +12,8 @@ def draw_beam_bendinga():
      plt.plot(a,wilson,'--+k',linewidth=3,label='Wilson')
      plt.plot(a,srJT,'--sg',linewidth=3,label='$SR-J^T$')
      plt.plot(a,srJ,'--xm',linewidth=3,label='SR-J')
-     plt.plot(a,srN4,'-->b',linewidth=3,label='SR-N_5-para')
-     plt.plot(a,srN5,'--^c',linewidth=3,label='SR-N_4-para')
+     plt.plot(a,srN5,'-->b',linewidth=3,label='SR-N_5-para')
+     plt.plot(a,srN4,'--^c',linewidth=3,label='SR-N_4-para')
      plt.legend(loc='upper right')
      plt.xlim(0.0,4.0)
      plt.ylim(0.0,1.1)
@@ -21,13 +21,15 @@ def draw_beam_bendinga():
      plt.show()
 
 def draw_cook_beam():
-     a=np.linspace(4,8,2)
-     quad=[0.425570E+01,0.518228E+01]
-     wilson=[0.493482E+01,0.562243E+01]
+     a=[2,4,8,16,60]
+     quad=[0.166513E+02,0.260082E+02,0.321510E+02,0.346954E+02,0.363195E+02]
+     wilson=[0.334923E+02,0.345455E+02,0.352873E+02,0.357158E+02,0.364641E+02]
+     srN4=[0.366758E+02,0.351954E+02,0.354582E+02,0.357706E+02,0.364729E+02]
      plt.plot(a,quad,'--or',linewidth=3,label='Quad4')
      plt.plot(a,wilson,'--+k',linewidth=3,label='Wilson')
+     plt.plot(a,srN4,'--^c',linewidth=3,label='SR-N_4-para')
      plt.legend(loc='upper right')
-     plt.xlim(4.0,8.0)
+     plt.xlim(0,60.0)
      #plt.ylim(0.0,60.0)
      plt.grid()
      plt.show()

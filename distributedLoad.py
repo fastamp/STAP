@@ -2,7 +2,7 @@
 from matplotlib.pyplot import plot
 import numpy as np
 
-nump=9                          #剖分的节点数
+nump=61                          #剖分的节点数
 x=np.linspace(44,60,nump)
 ngs=2
 forc=np.zeros(nump)
