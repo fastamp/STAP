@@ -3,5 +3,5 @@
 	<Configurations>
 		<Configuration Name="Debug|Win32"/>
 		<Configuration Name="Release|Win32"/>
-		<Configuration Name="Debug|x64" CommandArguments="E:\Coding\STAP\simu\patch_2d_10_8_3.inp"/>
+		<Configuration Name="Debug|x64" CommandArguments="E:\Coding\STAP\simu\ckb_24.inp"/>
 		<Configuration Name="Release|x64"/></Configurations></VisualStudioUserFile>
