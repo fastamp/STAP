@@ -91,7 +91,7 @@ C+++++高斯积分权重
 C
       EQUIVALENCE (NPAR(1),NPAR1),(NPAR(2),NUME),(NPAR(3),NUMMAT)
       ND=8        !单元自由度数
-      ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
+      ITYPE=1                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
       NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
 C
       GOTO(100,200,300),IND
@@ -121,6 +121,7 @@ C
       XYZ(K,N)=Y(L)
 21    CONTINUE
 C
+      IF(MTYP.LE.0)MTYP=1
       MATP(N)=MTYP
 C
       !生成LM数组并计算列高
@@ -412,7 +413,7 @@ C+++++高斯积分权重
 C
       EQUIVALENCE (NPAR(1),NPAR1),(NPAR(2),NUME),(NPAR(3),NUMMAT)
       ND=8        !单元自由度数
-      ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
+      ITYPE=1                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
       NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
 C
       GOTO(100,200,300)IND
@@ -442,6 +443,7 @@ C
       XYZ(K,N)=Y(L)
 21    CONTINUE
 C
+      IF(MTYP.LE.0)MTYP=1
       MATP(N)=MTYP
 C
       !生成LM数组并计算列高
@@ -790,7 +792,7 @@ C+++++高斯积分权重
 C
       EQUIVALENCE (NPAR(1),NPAR1),(NPAR(2),NUME),(NPAR(3),NUMMAT)
       ND=8        !单元自由度数
-      ITYPE=2                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
+      ITYPE=1                             !ITYPE: 0-轴对称; 1-平面应变; 2-平面应力
       NINT=2                              !积分方式: 1-单点积分; 2-2*2积分; 3-3*3积分; 4-4*4积分
       CALL ZEROD(EX,32)                   !假设应变矩阵初始化
 C
@@ -821,6 +823,7 @@ C
       XYZ(K,N)=Y(L)
 21    CONTINUE
 C
+      IF(MTYP.LE.0)MTYP=1
       MATP(N)=MTYP
 C
       !生成LM数组并计算列高

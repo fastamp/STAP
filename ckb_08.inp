@@ -153,34 +153,6 @@
 62, 69, 70, 79, 78
 63, 70, 71, 80, 79
 64, 71, 72, 81, 80
-*Nset, nset=Set-1, generate
-  1,  81,   1
-*Elset, elset=Set-1, generate
-  1,  64,   1
-** Section: Section-1
-*Solid Section, elset=Set-1, material=Material-1
-1.,
-*End Part
-**  
-**
-** ASSEMBLY
-**
-*Assembly, name=Assembly
-**  
-*Instance, name=Part-1-1, part=Part-1
-*End Instance
-**  
-*Nset, nset=Set-1, instance=Part-1-1, generate
-  1,  73,   9
-*Elset, elset=Set-1, instance=Part-1-1, generate
-  1,  57,   8
-*Elset, elset=_Surf-1_S2, internal, instance=Part-1-1, generate
-  8,  64,   8
-*Surface, type=ELEMENT, name=Surf-1
-_Surf-1_S2, S2
-*End Assembly
-*Amplitude, name=Amp-1
-             0.,              1.,              1.,              1.
 ** 
 ** MATERIALS
 ** 
