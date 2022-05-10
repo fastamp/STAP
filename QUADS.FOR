@@ -754,7 +754,7 @@ C+
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
       SUBROUTINE QUADSR(ID,X,Y,Z,U,MHT,E,VU,AREA,LM,XYZ,MATP)
       IMPLICIT REAL*8(A-H,O-Z)
-      PARAMETER(NEAS=5)                   !假设应变矩阵列数
+      PARAMETER(NEAS=4)                   !假设应变矩阵列数
       REAL A        !!!需要特别注意的地方, 当有IMPLICIT REAL*8的地方
       COMMON /SOL/ NUMNP,NEQ,NWK,NUMEST,MIDEST,MAXEST,MK                
       COMMON /DIM/ N1,N2,N3,N4,N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15   
@@ -939,17 +939,17 @@ C
       WT=WGT(LX,NINT)*WGT(LY,NINT)*XBAR*DET
 C     
 C     假设应变赋值
-C      EX(1,1)=RI
-C      EX(2,2)=SI
-C      EX(3,3)=RI
-C      EX(3,4)=SI
       EX(1,1)=RI
-      EX(1,5)=RI*SI
       EX(2,2)=SI
-      EX(2,5)=-EX(1,5)
       EX(3,3)=RI
       EX(3,4)=SI
-      EX(3,5)=RI*RI-SI*SI
+C      EX(1,1)=RI
+C      EX(1,5)=RI*SI
+C      EX(2,2)=SI
+C      EX(2,5)=-EX(1,5)
+C      EX(3,3)=RI
+C      EX(3,4)=SI
+C      EX(3,5)=RI*RI-SI*SI
 C
 C     求解标准位移法刚度阵对称部分
       DO 180 J=1,8
