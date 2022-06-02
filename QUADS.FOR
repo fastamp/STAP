@@ -915,13 +915,13 @@ C      AJ(2,2)=AJ(2,2)/HJ
 C
       !计算F0
       F0(1,1)=AJ(1,1)*AJ(1,1)
-      F0(1,2)=AJ(2,1)*AJ(2,1)
-      F0(1,3)=AJ(1,1)*AJ(2,1)
-      F0(2,1)=AJ(1,2)*AJ(1,2)
+      F0(2,1)=AJ(2,1)*AJ(2,1)
+      F0(3,1)=2.D0*AJ(1,1)*AJ(2,1)
+      F0(1,2)=AJ(1,2)*AJ(1,2)
       F0(2,2)=AJ(2,2)*AJ(2,2)
-      F0(2,3)=AJ(1,2)*AJ(2,2)
-      F0(3,1)=2.D0*AJ(1,1)*AJ(1,2)
-      F0(3,2)=2.D0*AJ(2,1)*AJ(2,2)
+      F0(3,2)=2.D0*AJ(1,2)*AJ(2,2)
+      F0(1,3)=AJ(1,1)*AJ(1,2)
+      F0(2,3)=AJ(2,1)*AJ(2,2)
       F0(3,3)=AJ(1,1)*AJ(2,2)+AJ(1,2)*AJ(2,1)
       CALL BRINV(F0,3,L)
       IF(L.EQ.0)WRITE(IOUT,'(18HF0 INVERSE ERROR!!)')
@@ -979,7 +979,7 @@ C     求解不协调位移部分的刚度
       DO 192 I=1,IST
       STIFF=0.D0
       DO 190 K=1,IST
-190   STIFF=STIFF+F0(K,I)*EX(K,J)
+190   STIFF=STIFF+F0(I,K)*EX(K,J)
 192   AG(I,J)=STIFF*HJ/DET
 195   CONTINUE
 C
