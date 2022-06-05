@@ -26,7 +26,7 @@ def draw_cook_beam():
      a=[2,4,8,16,24,60]
      quad=[0.166513E+02,0.260082E+02,0.321510E+02,0.346954E+02,0.353380E+02,0.363195E+02]
      wilson=[0.334923E+02,0.345455E+02,0.352873E+02,0.357158E+02,0.358694E+02,0.364641E+02]
-     srN4=[0.366758E+02,0.351954E+02,0.354582E+02,0.357706E+02,0.358993E+02,0.364729E+02]
+     srN4=[0.307173E+02,0.338325E+02,0.350957E+03,0.346954E+02,0.353380E+02,0.364600E+02]
      plt.plot(a,quad,'--or',linewidth=2,label='Quad4')
      plt.plot(a,wilson,'--+k',linewidth=2,label='Wilson')
      plt.plot(a,srN4,'--^c',linewidth=2,label='SR-N_4-para')
@@ -36,6 +36,6 @@ def draw_cook_beam():
      plt.grid()
      plt.show()
 
-draw_beam_bendinga()
-#draw_cook_beam()
+#draw_beam_bendinga()
+draw_cook_beam()
 print('finished!')

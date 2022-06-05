@@ -113,7 +113,7 @@ C
 C                                                                       
  2000 FORMAT (///,' D I S P L A C E M E N T S',//,'  NODE ',10X,        
      1        'X-DISPLACEMENT    Y-DISPLACEMENT    Z-DISPLACEMENT')     
-2010  FORMAT (1X,I3,8X,3E18.6)
+2010  FORMAT (1X,I5,6X,3E18.6)
 2020  FORMAT(E16.9,1X,E16.9,1X,E16.9)
 2030  FORMAT(A80)
 2040  FORMAT(3E16.9)

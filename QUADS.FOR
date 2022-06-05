@@ -31,7 +31,7 @@ C
   200 MIDEST=NLAST - NFIRST
 C
       IF(NETYP.LE.0)NETYP=1               !默认四节点位移法单元
-      GOTO(10,20,30),NETYP
+      GOTO(10,20,30,40),NETYP
 C
 C     标准位移法4节点程序
 10    CALL QUADS(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
@@ -47,6 +47,9 @@ C     4节点EAS单元程序
 30    CALL QUADSR(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
      &           A(N103),A(N104),A(N105),A(N106))
       GOTO 900
+C
+C     4节点板单元Q4-LIM
+40    CALL PQ4LIM()
 C
 900   RETURN
       END
@@ -876,7 +879,7 @@ C
       D(3,2)=0.D0
       D(3,3)=0.5D0*F
       IF (ITYPE.EQ.1) THEN                                              
-      THIC=1.                                                           
+      THIC=1.
       GOTO 120    
       ENDIF                                                             
 C                                                                       
