@@ -49,7 +49,8 @@ C     4节点EAS单元程序
       GOTO 900
 C
 C     4节点板单元Q4-LIM
-40    CALL PQ4LIM()
+40    CALL PQ4LIM(A(N1),A(N2),A(N3),A(N4),A(N4),A(N5),A(N101),A(N102),
+     &           A(N103),A(N104),A(N105),A(N106))
 C
 900   RETURN
       END
