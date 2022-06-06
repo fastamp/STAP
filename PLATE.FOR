@@ -16,7 +16,7 @@ C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
 C
       DIMENSION X(1),Y(1),Z(1),ID(3,1),E(1),VU(1),AREA(1),LM(8,1),
      &          XYZ(8,1),MATP(1),U(1),MHT(1)
-      DIMENSION IX(4)
+      DIMENSION IX(4),XG(4,4),WGT(4,4)
 C
 C     DB: 弯曲弹性矩阵; DS:剪切弹性矩阵
 C     HS:    S插值函数
@@ -28,7 +28,7 @@ C     HC,PC: W\THETA LINK 插值函数
 C
 C     AJ-(0,0)的雅克比矩阵
 C     F0-转换矩阵
-      DIMENSION AG(2,2),F0(3,3)
+      DIMENSION AG(2,2),F0(3,3),AJ(2,2)
 C+++++高斯积分点
       DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
      1 .5773502691896D0,   0.D0,   0.D0,   -.7745966692415D0,   0.D0,   
@@ -234,9 +234,35 @@ C     计算插值函数及其对全局坐标系的导数
       PW(I,J)=DUM
 60    CONTINUE
       !角位移连接插值函数及其导数
-      
+      RM2=1.D0-R*R
+      RP2=1.D0+R*R
+      SM2=1.D0-S*S
+      SP2=1.D0+S*S
+      HWT(1)=0.0625D0*RM2*SM 
+      HWT(2)=0.0625D0*RP*SM2 
+      HWT(3)=0.0625D0*RM2*SP 
+      HWT(4)=0.0625D0*RM*SM2
+      P(1,1)=-2.D0*R*SM 
+      P(1,2)=SM2
+      P(1,3)=-2.D0*R*SP 
+      P(1,4)=-SM2
+      P(2,1)=-RM2
+      P(2,2)=-2.D0*RP*S
+      P(2,3)=RM2
+      P(2,4)=-2.D0*RM*S
+      DO 80 I=1,2
+      DO 80 J=1,4
+      DUM=0.D0
+      DO 70 K=1,2
+70    DUM=DUM+XJI(I,K)*P(K,J)
+      PWT(I,J)=DUM
+80    CONTINUE
 C
       GOTO 900
 800   STOP
-900   RETURN 
+900   RETURN
+C
+ 2000 FORMAT (//,' *** ERROR *** ',
+     1    ' ZERO OR NEGATIVE JACOBIAN DETERMINANT FOR ELEMENT (',I8,')')
+C
       END
