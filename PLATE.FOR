@@ -24,11 +24,16 @@ C     HW,PW: W插值函数及其导数
 C     HWT,PWT: W THETA LINK插值函数及其导数
 C     HB,PB: B 插值函数及其导数
 C     HC,PC: W\THETA LINK 插值函数
-      DIMENSION DB(3,3),DS(2,2),HW(4),PW(2,4),HS(2,4),HWT(4),PWT(2,4)
+C     SBS: K_BS         SSW: K_SW         STT: K_\THETA\THETA
+C     SBT: K_B\THETA    SST: K_S\THETA    SBB: K_BB
+C     SSS: K_SS
+      DIMENSION DB(3,3),DS(2,2),HW(4),PW(2,4),HS(2,4),HB(2,4),
+     &          HWT(4),PWT(2,4),SBS(4,4),SSW(4,4),STT(8,8),SBT(4,8),
+     &          SST(4,4),SBB(4,4),SSS(4,4)
 C
-C     AJ-(0,0)的雅克比矩阵
-C     F0-转换矩阵
-      DIMENSION AG(2,2),F0(3,3),AJ(2,2)
+C     AJ-(0,0)的雅克比矩阵,   XJ(2,2)-积分点的雅可比矩阵
+C     F0-转换矩阵,           XJI(2,2)-积分点雅可比矩阵逆矩阵
+      DIMENSION AG(2,2),F0(3,3),AJ(2,2),XJ(2,2),XJI(2,2)
 C+++++高斯积分点
       DATA XG/   0.D0,   0.D0,   0.D0,   0.D0,   -.5773502691896D0,     
      1 .5773502691896D0,   0.D0,   0.D0,   -.7745966692415D0,   0.D0,   
@@ -39,6 +44,10 @@ C+++++高斯积分权重
      1 0.D0,   0.D0,   .5555555555556D0,   .8888888888889D0,            
      2 .5555555555556D0,   0.D0,   .3478548451375D0,   .6521451548625D0,
      3 .6521451548625D0,   .3478548451375D0 /   
+C
+      DATA SBS/1.77777777777778D0,0.D0,0.D0,0.D0,0.D0,
+     &         1.77777777777778D0,0.D0,0.D0,0.D0,0.D0,0.3555555555556D0,
+     &         0.D0,0.D0,0.D0,0.D0,0.3555555555556D0/
 C
       EQUIVALENCE (NPAR(1),NPAR1),(NPAR(2),NUME),(NPAR(3),NUMMAT)
 C
@@ -123,19 +132,28 @@ C
       DS(2,2)=G
 C
 C     计算转换矩阵F0
-      !计算(0,0)点的雅可比矩阵AJ,参考论文
+      !计算(0,0)点的雅可比矩阵AJ
       AJ(1,1)=0.25D0*(XYZ(1,N)-XYZ(3,N)-XYZ(5,N)+XYZ(7,N))
-      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
       AJ(2,1)=0.25D0*(XYZ(1,N)+XYZ(3,N)-XYZ(5,N)-XYZ(7,N))
+      AJ(1,2)=0.25D0*(XYZ(2,N)-XYZ(4,N)-XYZ(6,N)+XYZ(8,N))
       AJ(2,2)=0.25D0*(XYZ(2,N)+XYZ(4,N)-XYZ(6,N)-XYZ(8,N))
       HJ=AJ(1,1)*AJ(2,2)-AJ(1,2)*AJ(2,1) !DET J0
+C
+      !K_BS矩阵计算
+      DO 201 I=1,4
+      DO 201 J=1,4
+      SBS(I,J)=SBS(I,J)*HJ
+201   CONTINUE
 C
 C     计算单元刚度矩阵
       DO 280 LX=1,NINT
       RI=XG(LX,NINT)
       DO 280 LY=1,NINT
       SI=XG(LY,NINT)
-      CALL SHAPPQ4L(XYZ(1,N),HW,PW,HWT,PWT,DET,RI,SI,XBAR,NEL,IOUT)         !计算型函数及其导数
+      CALL SHAPPQ4L(XYZ(1,N),XJ,XJI,HW,PW,HWT,PWT,DET,RI,SI,XBAR,
+     &              NEL,IOUT)         !计算型函数及其导数
+      !计算Nw的梯度矩阵\nabla N_w
+
 280   CONTINUE          !结束积分点循环
 C
 290   CONTINUE          !结束单元循环
@@ -172,7 +190,7 @@ C
 C+    计算2D板单元: PQ4LIM 的插值函数及其导数
 C
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
-      SUBROUTINE SHAPPQ4L(XX,HW,PW,HWT,PWT,DET,R,S,XBAR,NEL,IOUT)
+      SUBROUTINE SHAPPQ4L(XX,XJ,XJI,HW,PW,HWT,PWT,DET,R,S,XBAR,NEL,IOUT)
       IMPLICIT REAL*8(A-H,O-Z)
       DIMENSION XX(2,4),B(4,8),H(4),P(2,4),XJ(2,2),XJI(2,2)
       DIMENSION HW(4),PW(2,4),HWT(4),PWT(2,4)
@@ -234,28 +252,28 @@ C     计算插值函数及其对全局坐标系的导数
       PW(I,J)=DUM
 60    CONTINUE
       !角位移连接插值函数及其导数
-      RM2=1.D0-R*R
-      RP2=1.D0+R*R
-      SM2=1.D0-S*S
-      SP2=1.D0+S*S
-      HWT(1)=0.0625D0*RM2*SM 
+      RM2=1.D0-R*R 
+      RP2=1.D0+R*R 
+      SM2=1.D0-S*S 
+      SP2=1.D0+S*S 
+      HWT(1)=0.0625D0*RM2*SM              !N_W\THETA
       HWT(2)=0.0625D0*RP*SM2 
       HWT(3)=0.0625D0*RM2*SP 
       HWT(4)=0.0625D0*RM*SM2
-      P(1,1)=-2.D0*R*SM 
-      P(1,2)=SM2
-      P(1,3)=-2.D0*R*SP 
-      P(1,4)=-SM2
-      P(2,1)=-RM2
-      P(2,2)=-2.D0*RP*S
-      P(2,3)=RM2
-      P(2,4)=-2.D0*RM*S
+      P(1,1)=-0.1250D0 * R  *SM           !\PARTIAL (N)_J/\PARTIAL \XI_I
+      P(1,2)= 0.0625D0 * SM2
+      P(1,3)=-0.1250D0 * R  *SP 
+      P(1,4)=-0.0625D0 * SM2
+      P(2,1)=-0.0625D0 * RM2
+      P(2,2)=-0.1250D0 * RP *S
+      P(2,3)= 0.0625D0 * RM2
+      P(2,4)=-0.1250D0 * RM *S
       DO 80 I=1,2
       DO 80 J=1,4
       DUM=0.D0
       DO 70 K=1,2
 70    DUM=DUM+XJI(I,K)*P(K,J)
-      PWT(I,J)=DUM
+      PWT(I,J)=DUM                        !\PARTIAL (N)_J/\PARTIAL X_I
 80    CONTINUE
 C
       GOTO 900
