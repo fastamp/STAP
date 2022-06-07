@@ -20,7 +20,7 @@ C
 C
 C     DB: 弯曲弹性矩阵; DS:剪切弹性矩阵
 C     HS:    S插值函数
-C     HW,PW: W插值函数及其导数
+C     HW: W插值函数;  PW: \nabla N_w
 C     HWT,PWT: W THETA LINK插值函数及其导数
 C     HB,PB: B 插值函数及其导数
 C     HC,PC: W\THETA LINK 插值函数
@@ -152,7 +152,20 @@ C     计算单元刚度矩阵
       SI=XG(LY,NINT)
       CALL SHAPPQ4L(XYZ(1,N),XJ,XJI,HW,PW,HWT,PWT,DET,RI,SI,XBAR,
      &              NEL,IOUT)         !计算型函数及其导数
-      !计算Nw的梯度矩阵\nabla N_w
+      !计算K_SW矩阵
+      HS(1,1)=XJ(1,1)
+      HS(2,1)=XJ(1,2)
+      HS(1,2)=XJ(2,1)
+      HS(2,2)=XJ(2,2)
+      HS(1,3)=XJ(1,1)*SI  
+      HS(2,3)=XJ(1,2)*SI 
+      HS(1,4)=XJ(2,1)*RI 
+      HS(2,4)=XJ(2,2)*RI
+      DO 220 I=1,4
+      DO 220 J=1,4
+      STIFF=0.D0
+      DO 210 K=1,2
+210   STIFF=STIFF+
 
 280   CONTINUE          !结束积分点循环
 C
