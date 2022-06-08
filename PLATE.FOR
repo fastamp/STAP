@@ -27,9 +27,10 @@ C     HC,PC: W\THETA LINK 插值函数
 C     SBS: K_BS         SSW: K_SW         STT: K_\THETA\THETA
 C     SBT: K_B\THETA    SST: K_S\THETA    SBB: K_BB
 C     SSS: K_SS
+C     BT:  LN_T;         BB: LN_B
       DIMENSION DB(3,3),DS(2,2),HW(4),PW(2,4),HS(2,4),HB(2,4),
      &          HWT(4),PWT(2,4),SBS(4,4),SSW(4,4),STT(8,8),SBT(4,8),
-     &          SST(4,4),SBB(4,4),SSS(4,4)
+     &          SST(4,4),SBB(4,4),SSS(4,4),BT(3,8),BB(3,4),SBS0(4,4)
 C
 C     AJ-(0,0)的雅克比矩阵,   XJ(2,2)-积分点的雅可比矩阵
 C     F0-转换矩阵,           XJI(2,2)-积分点雅可比矩阵逆矩阵
@@ -45,7 +46,7 @@ C+++++高斯积分权重
      2 .5555555555556D0,   0.D0,   .3478548451375D0,   .6521451548625D0,
      3 .6521451548625D0,   .3478548451375D0 /   
 C
-      DATA SBS/1.77777777777778D0,0.D0,0.D0,0.D0,0.D0,
+      DATA SBS0/1.77777777777778D0,0.D0,0.D0,0.D0,0.D0,
      &         1.77777777777778D0,0.D0,0.D0,0.D0,0.D0,0.3555555555556D0,
      &         0.D0,0.D0,0.D0,0.D0,0.3555555555556D0/
 C
@@ -116,7 +117,8 @@ C
 C
 C     stage2: 计算和组装刚度矩阵
 C
-200   DO 290 N=1,NUME
+200   CALL ZEROD(BB,12)
+      DO 290 N=1,NUME
       IMAT=MATP(N)
       YM=E(IMAT)
       PR=VU(IMAT)
@@ -142,18 +144,21 @@ C
       !K_BS矩阵计算
       DO 201 I=1,4
       DO 201 J=1,4
-      SBS(I,J)=SBS(I,J)*HJ
+      SBS(I,J)=SBS0(I,J)*HJ
 201   CONTINUE
 C
 C     计算单元刚度矩阵
+      CALL ZEROD(SSW,16)
+      CALL ZEROD(STT,64)
+      CALL ZEROD(SBT,16)
       DO 280 LX=1,NINT
       RI=XG(LX,NINT)
       DO 280 LY=1,NINT
       SI=XG(LY,NINT)
-      CALL SHAPPQ4L(XYZ(1,N),XJ,XJI,HW,PW,HWT,PWT,DET,RI,SI,XBAR,
-     &              NEL,IOUT)         !计算型函数及其导数
+      CALL SHAPPQ4L(XYZ(1,N),XJ,XJI,HW,PW,HWT,PWT,DET,RI,SI,NEL,IOUT)         !计算型函数及其导数             
+      WT=WGT(LX,NINT)*WGT(LY,NINT)*THIC*DET
       !计算K_SW矩阵
-      HS(1,1)=XJ(1,1)
+      HS(1,1)=XJ(1,1)                     !N_s
       HS(2,1)=XJ(1,2)
       HS(1,2)=XJ(2,1)
       HS(2,2)=XJ(2,2)
@@ -161,12 +166,57 @@ C     计算单元刚度矩阵
       HS(2,3)=XJ(1,2)*SI 
       HS(1,4)=XJ(2,1)*RI 
       HS(2,4)=XJ(2,2)*RI
-      DO 220 I=1,4
-      DO 220 J=1,4
+      DO 210 I=1,4
+      DO 210 J=1,4                        !只计算上三角矩阵
       STIFF=0.D0
-      DO 210 K=1,2
-210   STIFF=STIFF+
-
+      DO 205 K=1,2
+205   STIFF=STIFF+HS(K,I)*PW(K,J)
+      SSW(I,J)=SSW(I,J)+STIFF*WT
+210   CONTINUE          !结束K_SW
+C
+      !计算K_TT矩阵
+      DO 230 I=1,4
+      J2=I*2
+      J1=J2-1
+      BT(1,J1)= 0.D0
+      BT(2,J1)=-PW(2,I)
+      BT(3,J1)=-PW(1,I)
+      BT(1,J2)= PW(1,I)
+      BT(2,J2)= 0.D0
+      BT(3,J2)= PW(2,I)
+230   CONTINUE
+      DO 235 I=1,8
+      DO 235 J=1,8
+      STIFF=0.D0
+      DO 232 K=1,3
+      DO 232 L=1,3
+232   STIFF=STIFF+BT(K,I)*DB(K,L)*BT(L,J)
+      STT(I,J)=STT(I,J)+STIFF*WT
+235   CONTINUE
+C
+      !计算K_BT矩阵
+      BB(1,3)= XJ(2,2)*XJI(1,2)
+      BB(2,3)=-XJ(2,1)*XJI(2,2)
+      BB(3,3)=-XJ(2,1)*XJI(1,2) + XJ(2,2)*XJI(2,2)   
+      BB(1,4)=-XJ(1,2)*XJI(1,1)
+      BB(2,4)= XJ(1,1)*XJI(2,1)
+      BB(3,4)= XJ(1,1)*XJI(1,1) - XJ(1,2)*XJI(2,1)  
+      DO 245 I=1,4
+      DO 245 J=1,4
+      STIFF=0.D0
+      DO 240 K=1,3
+      DO 240 L=1,3
+240   STIFF=STIFF+BB(K,I)*DB(K,L)*BT(L,J) 
+      SBT(I,J)=SBT(I,J)+STIFF*WT 
+245   CONTINUE
+C
+      !计算K_ST矩阵
+      DO 255 I=1,4
+      DO 255 J=1,4
+      STIFF=0.D0
+      DO 250 K=1,2
+250   STIFF=STIFF+HS(K,I)*(PWT(K,J)+)
+C
 280   CONTINUE          !结束积分点循环
 C
 290   CONTINUE          !结束单元循环
@@ -203,7 +253,7 @@ C
 C+    计算2D板单元: PQ4LIM 的插值函数及其导数
 C
 C++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++C
-      SUBROUTINE SHAPPQ4L(XX,XJ,XJI,HW,PW,HWT,PWT,DET,R,S,XBAR,NEL,IOUT)
+      SUBROUTINE SHAPPQ4L(XX,XJ,XJI,HW,PW,HWT,PWT,DET,R,S,NEL,IOUT)
       IMPLICIT REAL*8(A-H,O-Z)
       DIMENSION XX(2,4),B(4,8),H(4),P(2,4),XJ(2,2),XJI(2,2)
       DIMENSION HW(4),PW(2,4),HWT(4),PWT(2,4)

@@ -1,0 +1,15 @@
+{
+    "fortran.formatting.formatter": "fprettify",
+    "fortran.fortls.disableAutoupdate": true,
+    "fortran.fortls.disabled": true,
+    "fortran.fortls.path": "C:\\Users\\zhongwenrd\\AppData\\Roaming\\Python\\Python39\\Scripts\\fortls",
+    "fortran.fortls.sortKeywords": true,
+    "fortran.preferredCase": "uppercase",
+    "fortran-ls.executablePath": "C:\\Users\\zhongwenrd\\AppData\\Roaming\\Python\\Python39\\Scripts\\fortls",
+    "fortran.formatting.findentArgs": [
+    "C:\\Users\\zhongwenrd\\AppData\\Roaming\\Python\\Python39\\Scripts\\fortls"
+    ],
+    "fortran.fortls.disableDiagnostics": true,
+    "fortran.fortls.notifyInit": true,
+    "fortran.linter.compiler": "ifort"
+}
