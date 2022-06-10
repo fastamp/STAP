@@ -209,6 +209,7 @@ C
 240   STIFF=STIFF+BB(K,I)*DB(K,L)*BT(L,J) 
       SBT(I,J)=SBT(I,J)+STIFF*WT 
 245   CONTINUE
+
 C
       !计算K_ST矩阵
       DO 255 I=1,4
@@ -216,6 +217,7 @@ C
       STIFF=0.D0
       DO 250 K=1,2
 250   STIFF=STIFF+HS(K,I)*(PWT(K,J)+)
+      
 C
 280   CONTINUE          !结束积分点循环
 C
